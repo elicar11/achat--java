@@ -23,8 +23,106 @@
             <artifactId>flatlaf</artifactId>
             <version>3.7.2</version>
         </dependency>
+        
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>3.7.2</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-fonts-roboto</artifactId>
+            <version>2.137</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.miglayout</groupId>
+            <artifactId>miglayout-core</artifactId>
+            <version>11.4.3</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.miglayout</groupId>
+            <artifactId>miglayout-swing</artifactId>
+            <version>11.4.3</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>io.github.dj-raven</groupId>
+            <artifactId>swing-datetime-picker</artifactId>
+            <version>2.1.4</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>io.github.dj-raven</groupId>
+
+            <artifactId>modal-dialog</artifactId>
+
+            <version>2.6.1</version>
+        </dependency>
 
     </dependencies>
 
+    <build>
+
+        <plugins>
+
+            <!-- Compilation Java -->
+
+            <plugin>
+
+                <groupId>
+                    org.apache.maven.plugins
+                </groupId>
+
+                <artifactId>
+                    maven-compiler-plugin
+                </artifactId>
+
+                <version>
+                    3.13.0
+                </version>
+
+                <configuration>
+
+                    <release>
+                        25
+                    </release>
+
+                </configuration>
+
+            </plugin>
+
+
+            <!-- Exécution de l'application -->
+
+            <plugin>
+
+                <groupId>
+                    org.codehaus.mojo
+                </groupId>
+
+                <artifactId>
+                    exec-maven-plugin
+                </artifactId>
+
+                <version>
+                    3.5.1
+                </version>
+
+                <configuration>
+
+                    <mainClass>
+                        com.achat.Achat
+                    </mainClass>
+
+                </configuration>
+
+            </plugin>
+
+        </plugins>
+
+    </build>
     
 </project>

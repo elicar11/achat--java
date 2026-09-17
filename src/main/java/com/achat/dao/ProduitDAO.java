@@ -12,10 +12,11 @@ import java.util.List;
 
 public class ProduitDAO {
 
-    // =========================
-    // AJOUTER UN PRODUIT
-    // =========================
-    public void ajouter(Produit produit) throws SQLException {
+    /**
+     * Ajouter un produit.
+     */
+    public void ajouter(Produit produit)
+            throws SQLException {
 
         String sql = """
             INSERT INTO PRODUIT
@@ -23,54 +24,181 @@ public class ProduitDAO {
             VALUES (?, ?, ?, ?)
             """;
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
 
-            statement.setString(1, produit.getDesignation());
-            statement.setString(2, produit.getDescription());
-            statement.setDouble(3, produit.getStockActuel());
-            statement.setDouble(4, produit.getStockAlerte());
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
+
+            statement.setString(
+                    1,
+                    produit.getDesignation()
+            );
+
+            statement.setString(
+                    2,
+                    produit.getDescription()
+            );
+
+            statement.setDouble(
+                    3,
+                    produit.getStockActuel()
+            );
+
+            statement.setDouble(
+                    4,
+                    produit.getStockAlerte()
+            );
 
             statement.executeUpdate();
         }
     }
 
-
-    // =========================
-    // LISTER TOUS LES PRODUITS
-    // =========================
-    public List<Produit> findAll() throws SQLException {
-
-        List<Produit> produits = new ArrayList<>();
+    /**
+     * Rechercher un produit par son identifiant.
+     */
+    public Produit findById(int idProduit)
+            throws SQLException {
 
         String sql = """
-            SELECT *
+            SELECT
+                id_produit,
+                designation,
+                description,
+                stock_actuel,
+                stock_alerte
+            FROM PRODUIT
+            WHERE id_produit = ?
+            """;
+
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(
+                    1,
+                    idProduit
+            );
+
+            try (
+                ResultSet result =
+                        statement.executeQuery()
+            ) {
+
+                if (result.next()) {
+
+                    Produit produit =
+                            new Produit();
+
+                    produit.setIdProduit(
+                            result.getInt(
+                                    "id_produit"
+                            )
+                    );
+
+                    produit.setDesignation(
+                            result.getString(
+                                    "designation"
+                            )
+                    );
+
+                    produit.setDescription(
+                            result.getString(
+                                    "description"
+                            )
+                    );
+
+                    produit.setStockActuel(
+                            result.getDouble(
+                                    "stock_actuel"
+                            )
+                    );
+
+                    produit.setStockAlerte(
+                            result.getDouble(
+                                    "stock_alerte"
+                            )
+                    );
+
+                    return produit;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Récupérer tous les produits.
+     */
+    public List<Produit> findAll()
+            throws SQLException {
+
+        List<Produit> produits =
+                new ArrayList<>();
+
+        String sql = """
+            SELECT
+                id_produit,
+                designation,
+                description,
+                stock_actuel,
+                stock_alerte
             FROM PRODUIT
             ORDER BY id_produit
             """;
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet result = statement.executeQuery()) {
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql);
+
+            ResultSet result =
+                    statement.executeQuery()
+        ) {
 
             while (result.next()) {
 
-                Produit produit = new Produit();
+                Produit produit =
+                        new Produit();
 
                 produit.setIdProduit(
-                        result.getInt("id_produit"));
+                        result.getInt(
+                                "id_produit"
+                        )
+                );
 
                 produit.setDesignation(
-                        result.getString("designation"));
+                        result.getString(
+                                "designation"
+                        )
+                );
 
                 produit.setDescription(
-                        result.getString("description"));
+                        result.getString(
+                                "description"
+                        )
+                );
 
                 produit.setStockActuel(
-                        result.getDouble("stock_actuel"));
+                        result.getDouble(
+                                "stock_actuel"
+                        )
+                );
 
                 produit.setStockAlerte(
-                        result.getDouble("stock_alerte"));
+                        result.getDouble(
+                                "stock_alerte"
+                        )
+                );
 
                 produits.add(produit);
             }
@@ -79,50 +207,90 @@ public class ProduitDAO {
         return produits;
     }
 
+    /**
+     * Rechercher un produit par désignation
+     * ou description.
+     */
+    public List<Produit> rechercher(
+            String motCle)
+            throws SQLException {
 
-    // =========================
-    // RECHERCHER UN PRODUIT
-    // =========================
-    public List<Produit> rechercher(String motCle) throws SQLException {
-
-        List<Produit> produits = new ArrayList<>();
+        List<Produit> produits =
+                new ArrayList<>();
 
         String sql = """
-            SELECT *
+            SELECT
+                id_produit,
+                designation,
+                description,
+                stock_actuel,
+                stock_alerte
             FROM PRODUIT
             WHERE designation LIKE ?
                OR description LIKE ?
             ORDER BY id_produit
             """;
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
 
-            String recherche = "%" + motCle + "%";
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
 
-            statement.setString(1, recherche);
-            statement.setString(2, recherche);
+            String recherche =
+                    "%" + motCle + "%";
 
-            try (ResultSet result = statement.executeQuery()) {
+            statement.setString(
+                    1,
+                    recherche
+            );
+
+            statement.setString(
+                    2,
+                    recherche
+            );
+
+            try (
+                ResultSet result =
+                        statement.executeQuery()
+            ) {
 
                 while (result.next()) {
 
-                    Produit produit = new Produit();
+                    Produit produit =
+                            new Produit();
 
                     produit.setIdProduit(
-                            result.getInt("id_produit"));
+                            result.getInt(
+                                    "id_produit"
+                            )
+                    );
 
                     produit.setDesignation(
-                            result.getString("designation"));
+                            result.getString(
+                                    "designation"
+                            )
+                    );
 
                     produit.setDescription(
-                            result.getString("description"));
+                            result.getString(
+                                    "description"
+                            )
+                    );
 
                     produit.setStockActuel(
-                            result.getDouble("stock_actuel"));
+                            result.getDouble(
+                                    "stock_actuel"
+                            )
+                    );
 
                     produit.setStockAlerte(
-                            result.getDouble("stock_alerte"));
+                            result.getDouble(
+                                    "stock_alerte"
+                            )
+                    );
 
                     produits.add(produit);
                 }
@@ -132,49 +300,84 @@ public class ProduitDAO {
         return produits;
     }
 
-
-    // =========================
-    // MODIFIER UN PRODUIT
-    // =========================
-    public void modifier(Produit produit) throws SQLException {
+    /**
+     * Modifier un produit.
+     */
+    public void modifier(
+            Produit produit)
+            throws SQLException {
 
         String sql = """
             UPDATE PRODUIT
-            SET designation = ?,
+            SET
+                designation = ?,
                 description = ?,
                 stock_actuel = ?,
                 stock_alerte = ?
             WHERE id_produit = ?
             """;
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
 
-            statement.setString(1, produit.getDesignation());
-            statement.setString(2, produit.getDescription());
-            statement.setDouble(3, produit.getStockActuel());
-            statement.setDouble(4, produit.getStockAlerte());
-            statement.setInt(5, produit.getIdProduit());
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
+
+            statement.setString(
+                    1,
+                    produit.getDesignation()
+            );
+
+            statement.setString(
+                    2,
+                    produit.getDescription()
+            );
+
+            statement.setDouble(
+                    3,
+                    produit.getStockActuel()
+            );
+
+            statement.setDouble(
+                    4,
+                    produit.getStockAlerte()
+            );
+
+            statement.setInt(
+                    5,
+                    produit.getIdProduit()
+            );
 
             statement.executeUpdate();
         }
     }
 
-
-    // =========================
-    // SUPPRIMER UN PRODUIT
-    // =========================
-    public void supprimer(int idProduit) throws SQLException {
+    /**
+     * Supprimer un produit.
+     */
+    public void supprimer(
+            int idProduit)
+            throws SQLException {
 
         String sql = """
             DELETE FROM PRODUIT
             WHERE id_produit = ?
             """;
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (
+            Connection connection =
+                    DatabaseConnection.getConnection();
 
-            statement.setInt(1, idProduit);
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(
+                    1,
+                    idProduit
+            );
 
             statement.executeUpdate();
         }

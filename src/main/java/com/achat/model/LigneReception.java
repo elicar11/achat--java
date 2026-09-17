@@ -4,14 +4,14 @@ public class LigneReception {
 
     private int idReception;
     private int idProduit;
-    private double quantiteRecue;
+    private int quantiteRecue;
 
     public LigneReception() {
     }
 
     public LigneReception(int idReception,
                           int idProduit,
-                          double quantiteRecue) {
+                          int quantiteRecue) {
 
         this.idReception = idReception;
         this.idProduit = idProduit;
@@ -34,11 +34,11 @@ public class LigneReception {
         this.idProduit = idProduit;
     }
 
-    public double getQuantiteRecue() {
+    public int getQuantiteRecue() {
         return quantiteRecue;
     }
 
-    public void setQuantiteRecue(double quantiteRecue) {
+    public void setQuantiteRecue(int quantiteRecue) {
         this.quantiteRecue = quantiteRecue;
     }
 

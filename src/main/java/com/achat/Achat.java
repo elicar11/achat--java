@@ -1,26 +1,62 @@
 package com.achat;
 
-import com.achat.database.DatabaseConnection;
 import com.achat.database.DatabaseInitializer;
-import java.sql.Connection;
+import com.achat.ui.MainFrame;
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont;
+import java.awt.Font;
+
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 public class Achat {
 
     public static void main(String[] args) {
 
-        try {
-            Connection connexion = DatabaseConnection.getConnection();
+        /*
+         * =========================================
+         * 1. Initialiser la base de données
+         * =========================================
+         */
+        DatabaseInitializer.initialize();
 
-            System.out.println("Connexion SQLite réussie !");
 
-            connexion.close();
+        /*
+         * =========================================
+         * 2. Installer la police Roboto
+         * =========================================
+         */
+        FlatRobotoFont.install();
 
-            // Création des tables
-            DatabaseInitializer.initialize();
 
-        } catch (Exception e) {
-            System.out.println("Erreur de connexion à SQLite !");
-            e.printStackTrace();
-        }
+        /*
+         * =========================================
+         * 3. Définir la police par défaut
+         * =========================================
+         */
+        Font regularFont = new Font(FlatRobotoFont.FAMILY, Font.PLAIN, 14);
+
+        UIManager.put("defaultFont", new Font(FlatRobotoFont.FAMILY, Font.PLAIN, 13));
+
+
+        /*
+         * =========================================
+         * 4. Installer FlatLaf
+         * =========================================
+         */
+        FlatLightLaf.setup();
+
+
+        /*
+         * =========================================
+         * 5. Lancer l'application Swing
+         * =========================================
+         */
+        SwingUtilities.invokeLater(() -> {
+
+            MainFrame frame = new MainFrame();
+
+            frame.setVisible(true);
+        });
     }
 }
