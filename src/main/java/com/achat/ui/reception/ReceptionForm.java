@@ -14,8 +14,10 @@ import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import static java.awt.Color.GRAY;
 import java.awt.event.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ public class ReceptionForm extends JPanel {
 
     private JButton btnEnregistrer;
     private JButton btnAnnuler;
+    private JLabel lblTitre;
 
     private int idModification = -1;
 
@@ -109,275 +112,118 @@ public class ReceptionForm extends JPanel {
      */
     private void construireInterface() {
 
-        setLayout(
-                new MigLayout(
-                        "fill, insets 28",
-                        "[grow]",
-                        "[][18][][][18][grow][18][]"
-                )
-        );
-
+        setLayout(new BorderLayout());
         setBackground(BACKGROUND);
 
-        // =========================================================
-        // TITRE
-        // =========================================================
+        // =====================================================
+        // HEADER
+        // =====================================================
 
-        JLabel titre =
-                new JLabel(
-                        idModification == -1
-                                ? "Nouvelle réception"
-                                : "Modifier la réception"
-                );
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(BLACK);
+        header.setBorder(new javax.swing.border.EmptyBorder(18, 22, 18, 22));
 
-        titre.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        25
-                )
-        );
+        lblTitre = new JLabel("Nouvelle réception");
+        lblTitre.setForeground(WHITE);
+        lblTitre.setFont(new Font("SansSerif", Font.BOLD, 20));
+        header.add(lblTitre, BorderLayout.WEST);
 
-        titre.setForeground(TEXT);
+        add(header, BorderLayout.NORTH);
 
-        add(
-                titre,
-                "wrap"
-        );
+        // =====================================================
+        // CONTENU
+        // =====================================================
 
-        JLabel sousTitre =
-                new JLabel(
-                        "Enregistrez les marchandises réellement reçues."
-                );
+        JPanel content = new JPanel(new BorderLayout(0, 15));
+        content.setBackground(WHITE);
+        content.setBorder(new javax.swing.border.EmptyBorder(22, 25, 22, 25));
 
-        sousTitre.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        13
-                )
-        );
+        // =====================================================
+        // INFORMATIONS GÉNÉRALES
+        // =====================================================
 
-        sousTitre.setForeground(MUTED);
+        JPanel informations = new JPanel(new MigLayout(
+                "fillx, insets 0",
+                "[120!][grow]",
+                "[][12][][12][]"
+        ));
+        informations.setOpaque(false);
 
-        add(
-                sousTitre,
-                "wrap"
-        );
+        JLabel titreInfos = createLabelSection("Informations de réception");
+        informations.add(titreInfos, "span 2, wrap");
 
-        // =========================================================
-        // INFORMATIONS GENERALES
-        // =========================================================
+        informations.add(creerLabel("Commande"));
+        comboCommande = new JComboBox<>();
+        comboCommande.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        comboCommande.setPreferredSize(new Dimension(0, 42));
+        informations.add(comboCommande, "growx, wrap");
 
-        JPanel informations =
-                creerCarte();
+        informations.add(creerLabel("Date réception"));
+        txtDate = creerChamp();
+        txtDate.setText(LocalDate.now().toString());
+        txtDate.setPreferredSize(new Dimension(0, 42));
+        informations.add(txtDate, "growx, wrap");
 
-        informations.setLayout(
-                new MigLayout(
-                        "fill, insets 20",
-                        "[right] 14 [grow]",
-                        "[][][18][][]"
-                )
-        );
+        informations.add(creerLabel("Bon de livraison"));
+        txtBonLivraison = creerChamp();
+        txtBonLivraison.setPreferredSize(new Dimension(0, 42));
+        informations.add(txtBonLivraison, "growx, wrap");
 
-        JLabel section =
-                creerTitreSection(
-                        "Informations générales"
-                );
+        content.add(informations, BorderLayout.NORTH);
 
-        informations.add(
-                section,
-                "span 2, wrap"
-        );
-
-        // Commande
-        informations.add(
-                creerLabel("Commande :")
-        );
-
-        comboCommande =
-                new JComboBox<>();
-
-        comboCommande.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        comboCommande.setBackground(WHITE);
-        comboCommande.setForeground(TEXT);
-
-        informations.add(
-                comboCommande,
-                "growx, wrap"
-        );
-
-        // Date
-        informations.add(
-                creerLabel("Date réception :")
-        );
-
-        txtDate =
-                creerChamp();
-
-        txtDate.setText(
-                LocalDate.now().toString()
-        );
-
-        informations.add(
-                txtDate,
-                "growx, wrap"
-        );
-
-        // Bon livraison
-        informations.add(
-                creerLabel("Bon de livraison :")
-        );
-
-        txtBonLivraison =
-                creerChamp();
-
-        informations.add(
-                txtBonLivraison,
-                "growx"
-        );
-
-        add(
-                informations,
-                "growx, wrap"
-        );
-
-        // =========================================================
+        // =====================================================
         // PRODUITS
-        // =========================================================
+        // =====================================================
 
-        JLabel produitsTitre =
-                creerTitreSection(
-                        "Produits reçus"
-                );
+        JPanel produitsPanel = new JPanel(new BorderLayout(0, 10));
+        produitsPanel.setOpaque(false);
 
-        add(
-                produitsTitre,
-                "wrap"
-        );
+        JPanel produitsHeader = new JPanel(new BorderLayout());
+        produitsHeader.setOpaque(false);
 
-        JLabel produitsInfo =
-                new JLabel(
-                        "Saisissez uniquement les quantités réellement reçues."
-                );
+        JLabel titreProduits = createLabelSection("Produits reçus");
+        produitsHeader.add(titreProduits, BorderLayout.WEST);
 
-        produitsInfo.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        12
-                )
-        );
+        JLabel info = new JLabel("Saisissez les quantités réellement reçues");
+        info.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        info.setForeground(MUTED);
+        produitsHeader.add(info, BorderLayout.EAST);
 
-        produitsInfo.setForeground(MUTED);
-
-        add(
-                produitsInfo,
-                "wrap"
-        );
-
-        JPanel produitsCard =
-                creerCarte();
-
-        produitsCard.setLayout(
-                new BorderLayout()
-        );
+        produitsPanel.add(produitsHeader, BorderLayout.NORTH);
 
         creerTableProduits();
+        JScrollPane scroll = new JScrollPane(tableProduits);
+        scroll.setBorder(BorderFactory.createLineBorder(BORDER));
+        scroll.getViewport().setBackground(WHITE);
+        scroll.setBackground(WHITE);
+        produitsPanel.add(scroll, BorderLayout.CENTER);
 
-        JScrollPane scroll =
-                new JScrollPane(
-                        tableProduits
-                );
+        content.add(produitsPanel, BorderLayout.CENTER);
 
-        scroll.setBorder(
-                BorderFactory.createEmptyBorder(
-                        8,
-                        8,
-                        8,
-                        8
-                )
-        );
-
-        scroll.getViewport()
-                .setBackground(WHITE);
-
-        produitsCard.add(
-                scroll,
-                BorderLayout.CENTER
-        );
-
-        add(
-                produitsCard,
-                "grow, push, wrap"
-        );
-
-        // =========================================================
+        // =====================================================
         // BOUTONS
-        // =========================================================
+        // =====================================================
 
-        JPanel boutons =
-                new JPanel(
-                        new MigLayout(
-                                "insets 0",
-                                "[grow][][]",
-                                "[]"
-                        )
-                );
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
 
+        btnAnnuler = creerBoutonSecondaire("Annuler");
+        btnEnregistrer = creerBoutonPrincipal("Enregistrer");
+        btnAnnuler.setPreferredSize(new Dimension(120, 46));
+        btnEnregistrer.setPreferredSize(new Dimension(145, 46));
+
+        JPanel boutons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         boutons.setOpaque(false);
+        boutons.add(btnAnnuler);
+        boutons.add(btnEnregistrer);
+        bottom.add(boutons, BorderLayout.EAST);
 
-        btnAnnuler =
-                creerBoutonSecondaire(
-                        "Annuler"
-                );
+        content.add(bottom, BorderLayout.SOUTH);
+        add(content, BorderLayout.CENTER);
 
-        btnEnregistrer =
-                creerBoutonPrincipal(
-                        idModification == -1
-                                ? "Enregistrer"
-                                : "Modifier"
-                );
-
-        boutons.add(
-                new JPanel(),
-                "growx"
-        );
-
-        boutons.add(
-                btnAnnuler,
-                "w 120!"
-        );
-
-        boutons.add(
-                btnEnregistrer,
-                "w 145!"
-        );
-
-        add(
-                boutons,
-                "growx"
-        );
-
-        // Actions
-        comboCommande.addActionListener(
-                e -> chargerProduitsCommande()
-        );
-
-        btnEnregistrer.addActionListener(
-                e -> enregistrer()
-        );
-
-        btnAnnuler.addActionListener(
-                e -> fermer()
-        );
+        comboCommande.addActionListener(e -> chargerProduitsCommande());
+        btnEnregistrer.addActionListener(e -> enregistrer());
+        btnAnnuler.addActionListener(e -> fermer());
     }
 
     /**
@@ -386,114 +232,51 @@ public class ReceptionForm extends JPanel {
     private void creerTableProduits() {
 
         String[] colonnes = {
-            "ID PRODUIT",
-            "PRODUIT",
-            "QUANTITÉ COMMANDÉE",
-            "DÉJÀ REÇUE",
-            "QUANTITÉ À RECEVOIR",
-            "QUANTITÉ REÇUE"
+                "ID PRODUIT",
+                "PRODUIT",
+                "COMMANDÉ",
+                "DÉJÀ REÇU",
+                "À RECEVOIR",
+                "QUANTITÉ REÇUE"
         };
 
-        tableModel =
-                new DefaultTableModel(
-                        colonnes,
-                        0
-                ) {
+        tableModel = new DefaultTableModel(colonnes, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 5;
+            }
+        };
 
-                    @Override
-                    public boolean isCellEditable(
-                            int row,
-                            int column
-                    ) {
-
-                        // Seule la dernière colonne
-                        // est modifiable.
-                        return column == 5;
-                    }
-                };
-
-        tableProduits =
-                new JTable(tableModel);
-
-        tableProduits.setRowHeight(44);
-
-        tableProduits.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        12
-                )
-        );
-
+        tableProduits = new JTable(tableModel);
+        tableProduits.setRowHeight(42);
+        tableProduits.setFont(new Font("SansSerif", Font.PLAIN, 13));
         tableProduits.setBackground(WHITE);
-
         tableProduits.setForeground(TEXT);
-
-        tableProduits.setSelectionBackground(
-                new Color(238, 238, 238)
-        );
-
+        tableProduits.setSelectionBackground(new Color(238, 238, 238));
         tableProduits.setSelectionForeground(TEXT);
+        tableProduits.setShowVerticalLines(false);
+        tableProduits.setShowHorizontalLines(true);
+        tableProduits.setGridColor(new Color(235, 235, 235));
+        tableProduits.setIntercellSpacing(new Dimension(0, 0));
 
-        tableProduits.setShowGrid(false);
+        tableProduits.getTableHeader().setPreferredSize(new Dimension(0, 44));
+        tableProduits.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        tableProduits.getTableHeader().setBackground(new Color(248, 248, 248));
+        tableProduits.getTableHeader().setForeground(GRAY);
+        tableProduits.getTableHeader().setReorderingAllowed(false);
 
-        tableProduits.setIntercellSpacing(
-                new Dimension(0, 0)
-        );
+        int[] widths = {75, 230, 100, 105, 105, 125};
+        for (int i = 0; i < widths.length; i++) {
+            tableProduits.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
-        tableProduits.getTableHeader()
-                .setPreferredSize(
-                        new Dimension(0, 42)
-                );
-
-        tableProduits.getTableHeader()
-                .setFont(
-                        new Font(
-                                "SansSerif",
-                                Font.BOLD,
-                                11
-                        )
-                );
-
-        tableProduits.getTableHeader()
-                .setBackground(BLACK);
-
-        tableProduits.getTableHeader()
-                .setForeground(Color.WHITE);
-
-        tableProduits.getTableHeader()
-                .setReorderingAllowed(false);
-
-        // Largeurs
-        tableProduits
-                .getColumnModel()
-                .getColumn(0)
-                .setPreferredWidth(70);
-
-        tableProduits
-                .getColumnModel()
-                .getColumn(1)
-                .setPreferredWidth(180);
-
-        tableProduits
-                .getColumnModel()
-                .getColumn(2)
-                .setPreferredWidth(130);
-
-        tableProduits
-                .getColumnModel()
-                .getColumn(3)
-                .setPreferredWidth(110);
-
-        tableProduits
-                .getColumnModel()
-                .getColumn(4)
-                .setPreferredWidth(140);
-
-        tableProduits
-                .getColumnModel()
-                .getColumn(5)
-                .setPreferredWidth(130);
+        DefaultTableCellRenderer center = new DefaultTableCellRenderer();
+        center.setHorizontalAlignment(SwingConstants.CENTER);
+        tableProduits.getColumnModel().getColumn(0).setCellRenderer(center);
+        tableProduits.getColumnModel().getColumn(2).setCellRenderer(center);
+        tableProduits.getColumnModel().getColumn(3).setCellRenderer(center);
+        tableProduits.getColumnModel().getColumn(4).setCellRenderer(center);
+        tableProduits.getColumnModel().getColumn(5).setCellRenderer(center);
     }
 
     /**
@@ -616,6 +399,11 @@ public class ReceptionForm extends JPanel {
 
         idModification =
                 reception.getIdReception();
+
+        if (lblTitre != null) {
+            lblTitre.setText("Modifier la réception");
+        }
+        btnEnregistrer.setText("Modifier");
 
         txtDate.setText(
                 reception.getDateReception() != null
@@ -865,32 +653,16 @@ public class ReceptionForm extends JPanel {
                     i++) {
 
                 int idProduit =
-                        Integer.parseInt(
-                                tableModel
-                                        .getValueAt(i, 0)
-                                        .toString()
-                        );
+                        lireEntier(tableModel.getValueAt(i, 0));
 
                 int quantiteCommandee =
-                        Integer.parseInt(
-                                tableModel
-                                        .getValueAt(i, 2)
-                                        .toString()
-                        );
+                        lireEntier(tableModel.getValueAt(i, 2));
 
                 int dejaRecu =
-                        Integer.parseInt(
-                                tableModel
-                                        .getValueAt(i, 3)
-                                        .toString()
-                        );
+                        lireEntier(tableModel.getValueAt(i, 3));
 
                 int quantiteMax =
-                        Integer.parseInt(
-                                tableModel
-                                        .getValueAt(i, 4)
-                                        .toString()
-                        );
+                        lireEntier(tableModel.getValueAt(i, 4));
 
                 Object valeur =
                         tableModel
@@ -900,12 +672,7 @@ public class ReceptionForm extends JPanel {
 
                 try {
 
-                    quantiteRecue =
-                            Integer.parseInt(
-                                    valeur
-                                            .toString()
-                                            .trim()
-                            );
+                    quantiteRecue = lireEntier(valeur);
 
                 } catch (Exception e) {
 
@@ -1099,6 +866,13 @@ public class ReceptionForm extends JPanel {
         return label;
     }
 
+    private JLabel createLabelSection(String texte) {
+        JLabel label = new JLabel(texte);
+        label.setFont(new Font("SansSerif", Font.BOLD, 16));
+        label.setForeground(TEXT);
+        return label;
+    }
+
     private JLabel creerLabel(
             String texte
     ) {
@@ -1229,6 +1003,41 @@ public class ReceptionForm extends JPanel {
         );
 
         return button;
+    }
+
+    /**
+     * Convertit une quantité en entier.
+     * La JTable peut fournir 5.0 sous forme de Double alors que
+     * la quantité métier est entière. On accepte donc 5 et 5.0,
+     * mais pas une vraie valeur décimale comme 5.5.
+     */
+    private int lireEntier(Object valeur) {
+        if (valeur == null) {
+            throw new IllegalArgumentException("Valeur vide");
+        }
+
+        double nombre;
+
+        if (valeur instanceof Number) {
+            nombre = ((Number) valeur).doubleValue();
+        } else {
+            String texte = valeur.toString().trim().replace(',', '.');
+            if (texte.isEmpty()) {
+                throw new IllegalArgumentException("Valeur vide");
+            }
+            nombre = Double.parseDouble(texte);
+        }
+
+        if (Double.isNaN(nombre)
+                || Double.isInfinite(nombre)
+                || nombre != Math.rint(nombre)
+                || nombre > Integer.MAX_VALUE
+                || nombre < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException(
+                    "La quantité doit être un nombre entier.");
+        }
+
+        return (int) nombre;
     }
 
     private void afficherAvertissement(

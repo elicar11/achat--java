@@ -48,7 +48,8 @@ public class ReceptionDAO {
                     reception.getIdCommande()
             );
 
-            if (reception.getIdFacture() > 0) {
+            // CORRECTION : Vérifier d'abord si l'ID n'est pas null avant de le comparer
+            if (reception.getIdFacture() != null && reception.getIdFacture() > 0) {
                 statement.setInt(
                         4,
                         reception.getIdFacture()

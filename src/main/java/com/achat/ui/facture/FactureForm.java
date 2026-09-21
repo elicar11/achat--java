@@ -447,9 +447,15 @@ public class FactureForm extends JPanel {
                 )
         );
 
-        comboEtatPaiement.setSelectedItem(
-                facture.getEtatPaiement()
-        );
+        // CORRECTION : Conversion du code système vers le libellé UI
+        String etatSys = facture.getEtatPaiement();
+        if ("PARTIELLEMENT_PAYEE".equalsIgnoreCase(etatSys) || "Partiel".equalsIgnoreCase(etatSys)) {
+            comboEtatPaiement.setSelectedItem("Partiel");
+        } else if ("PAYEE".equalsIgnoreCase(etatSys) || "Payé".equalsIgnoreCase(etatSys)) {
+            comboEtatPaiement.setSelectedItem("Payé");
+        } else {
+            comboEtatPaiement.setSelectedItem("Non payé");
+        }
 
         calculerTotalTtc();
     }
@@ -665,22 +671,29 @@ public class FactureForm extends JPanel {
             }
 
             // --------------------------------------------------------
-            // ETAT
+            // ETAT (CORRECTION DE LA CONVERSION VERS LE FORMAT ATTENDU)
             // --------------------------------------------------------
 
-            String etatPaiement =
-                    (String)
-                            comboEtatPaiement
-                                    .getSelectedItem();
+            String etatSelectionne =
+                    (String) comboEtatPaiement.getSelectedItem();
 
-            if (etatPaiement == null
-                    || etatPaiement.trim().isEmpty()) {
+            if (etatSelectionne == null
+                    || etatSelectionne.trim().isEmpty()) {
 
                 afficherAvertissement(
                         "Veuillez sélectionner l'état du paiement."
                 );
 
                 return;
+            }
+
+            String etatPaiement;
+            if ("Partiel".equalsIgnoreCase(etatSelectionne)) {
+                etatPaiement = "PARTIELLEMENT_PAYEE";
+            } else if ("Payé".equalsIgnoreCase(etatSelectionne)) {
+                etatPaiement = "PAYEE";
+            } else {
+                etatPaiement = "NON_PAYEE";
             }
 
             // --------------------------------------------------------

@@ -6,7 +6,6 @@ import com.achat.model.Societe;
 import com.achat.service.FournisseurService;
 import com.achat.service.PersonneService;
 import com.achat.service.SocieteService;
-
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -14,34 +13,31 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 
+/**
+ * Formulaire d'ajout / modification d'un fournisseur.
+ *
+ * Style calqué sur le formulaire "Nouvelle commande" :
+ * - Bandeau noir en en-tête avec titre blanc
+ * - Formulaire à plat (pas de cartes encadrées)
+ * - Séparateur horizontal avant les boutons
+ * - Boutons alignés à droite (Annuler / Enregistrer)
+ */
 public class FournisseurForm extends JPanel {
 
     private final FournisseurService fournisseurService;
     private final PersonneService personneService;
     private final SocieteService societeService;
 
-    // =========================================================
-    // COULEURS
-    // =========================================================
-
-    private static final Color BLACK =
-            new Color(18, 18, 18);
-
-    private static final Color WHITE =
-            Color.WHITE;
-
-    private static final Color BACKGROUND =
-            new Color(248, 248, 248);
-
-    private static final Color BORDER =
-            new Color(225, 225, 225);
-
-    private static final Color GRAY =
-            new Color(105, 105, 105);
-
-    // =========================================================
-    // CHAMPS
-    // =========================================================
+    // ========================= THÈME =========================
+    private static final Color HEADER_BG = new Color(24, 24, 24);
+    private static final Color SURFACE = Color.WHITE;
+    private static final Color TEXT = new Color(25, 25, 25);
+    private static final Color MUTED = new Color(105, 105, 105);
+    private static final Color BORDER = new Color(228, 228, 228);
+    private static final Color PRIMARY = new Color(18, 18, 18);
+    private static final Color PRIMARY_HOVER = new Color(40, 40, 40);
+    private static final Color LIGHT_GRAY = new Color(242, 242, 242);
+    private static final Color DISABLED = new Color(242, 242, 242);
 
     private JComboBox<String> comboType;
 
@@ -49,11 +45,9 @@ public class FournisseurForm extends JPanel {
     private JTextField txtEmail;
     private JTextField txtTelephone;
 
-    // PERSONNE
     private JTextField txtNom;
     private JTextField txtPrenom;
 
-    // SOCIETE
     private JTextField txtRaisonSociale;
     private JTextField txtNif;
     private JTextField txtStat;
@@ -62,946 +56,440 @@ public class FournisseurForm extends JPanel {
     private JButton btnAnnuler;
 
     private int idModification = -1;
-
     private JDialog dialog;
 
-    // =========================================================
-    // CONSTRUCTEUR AJOUT
-    // =========================================================
-
     public FournisseurForm() {
-
-        fournisseurService =
-                new FournisseurService();
-
-        personneService =
-                new PersonneService();
-
-        societeService =
-                new SocieteService();
+        fournisseurService = new FournisseurService();
+        personneService = new PersonneService();
+        societeService = new SocieteService();
 
         construireInterface();
     }
 
-    // =========================================================
-    // CONSTRUCTEUR MODIFICATION
-    // =========================================================
-
-    public FournisseurForm(
-            Fournisseur fournisseur) {
-
+    public FournisseurForm(Fournisseur fournisseur) {
         this();
 
         if (fournisseur != null) {
-
-            chargerFournisseur(
-                    fournisseur
-            );
+            chargerFournisseur(fournisseur);
         }
     }
 
-    // =========================================================
-    // DIALOG
-    // =========================================================
-
-    public void setDialog(
-            JDialog dialog) {
-
+    public void setDialog(JDialog dialog) {
         this.dialog = dialog;
     }
 
-    // =========================================================
-    // CONSTRUCTION
-    // =========================================================
-
     private void construireInterface() {
 
-        setLayout(
-                new MigLayout(
-                        "fill, insets 25",
-                        "[grow]",
-                        "[][][grow][]"
-                )
-        );
+        setLayout(new BorderLayout());
+        setBackground(SURFACE);
 
-        setBackground(BACKGROUND);
+        // ========================= BANDEAU NOIR =========================
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(HEADER_BG);
+        header.setBorder(new EmptyBorder(24, 28, 24, 28));
 
-        // =====================================================
-        // TITRE
-        // =====================================================
+        JLabel titre = new JLabel("Informations fournisseur");
+        titre.setFont(titre.getFont().deriveFont(Font.BOLD, 22f));
+        titre.setForeground(Color.WHITE);
 
-        JPanel header =
-                new JPanel(
-                        new MigLayout(
-                                "insets 0",
-                                "[]"
-                        )
-                );
+        header.add(titre, BorderLayout.WEST);
 
-        header.setOpaque(false);
+        add(header, BorderLayout.NORTH);
 
-        JLabel titre =
-                new JLabel(
-                        "Informations fournisseur"
-                );
+        // ========================= CORPS =========================
+        JPanel corps = new JPanel(new MigLayout(
+                "fill, insets 26 28 20 28",
+                "[grow]",
+                "[]18[grow]"
+        ));
+        corps.setOpaque(false);
 
-        titre.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        22
-                )
-        );
+        // ------------------------- TYPE -------------------------
+        JPanel typeLigne = new JPanel(new MigLayout(
+                "insets 0", "[][300]", "[]"
+        ));
+        typeLigne.setOpaque(false);
 
-        titre.setForeground(BLACK);
+        JLabel typeLabel = creerLabel("Type de fournisseur");
+        typeLigne.add(typeLabel, "gapright 16");
 
-        JLabel sousTitre =
-                new JLabel(
-                        "Renseignez les informations du fournisseur"
-                );
+        comboType = new JComboBox<>(new String[]{
+                "PERSONNE",
+                "SOCIETE"
+        });
+        styliserComboBox(comboType);
 
-        sousTitre.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        12
-                )
-        );
+        typeLigne.add(comboType, "growx, h 34!");
 
-        sousTitre.setForeground(GRAY);
+        corps.add(typeLigne, "growx, wrap");
 
-        header.setLayout(
-                new BoxLayout(
-                        header,
-                        BoxLayout.Y_AXIS
-                )
-        );
+        // ------------------------- CHAMPS -------------------------
+        JPanel formCard = new JPanel(new MigLayout(
+                "fillx, insets 0",
+                "[150][grow]",
+                "[]14[]14[]14[]14[]14[]14[]14[]"
+        ));
+        formCard.setOpaque(false);
 
-        header.add(titre);
+        txtNom = creerChamp();
+        txtPrenom = creerChamp();
+        txtRaisonSociale = creerChamp();
+        txtNif = creerChamp();
+        txtStat = creerChamp();
+        txtAdresse = creerChamp();
+        txtEmail = creerChamp();
+        txtTelephone = creerChamp();
 
-        header.add(
-                Box.createVerticalStrut(4)
-        );
+        ajouterLigne(formCard, "Nom :", txtNom);
+        ajouterLigne(formCard, "Prénom :", txtPrenom);
+        ajouterLigne(formCard, "Raison sociale :", txtRaisonSociale);
+        ajouterLigne(formCard, "NIF :", txtNif);
+        ajouterLigne(formCard, "STAT :", txtStat);
+        ajouterLigne(formCard, "Adresse :", txtAdresse);
+        ajouterLigne(formCard, "Email :", txtEmail);
+        ajouterLigne(formCard, "Téléphone :", txtTelephone);
 
-        header.add(sousTitre);
+        corps.add(formCard, "grow, top");
 
-        add(
-                header,
-                "growx, wrap 18"
-        );
+        add(corps, BorderLayout.CENTER);
 
-        // =====================================================
-        // TYPE
-        // =====================================================
+        // ========================= PIED (séparateur + boutons) ==========
+        JPanel pied = new JPanel(new BorderLayout());
+        pied.setOpaque(false);
+        pied.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER),
+                new EmptyBorder(16, 28, 20, 28)
+        ));
 
-        JPanel typePanel =
-                new RoundedPanel(14);
-
-        typePanel.setLayout(
-                new MigLayout(
-                        "fillx, insets 14",
-                        "[][grow]",
-                        "[]"
-                )
-        );
-
-        JLabel typeLabel =
-                new JLabel("Type de fournisseur");
-
-        typeLabel.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        12
-                )
-        );
-
-        typePanel.add(typeLabel);
-
-        comboType =
-                new JComboBox<>(
-                        new String[]{
-                                "PERSONNE",
-                                "SOCIETE"
-                        }
-                );
-
-        styliserComboBox(
-                comboType
-        );
-
-        typePanel.add(
-                comboType,
-                "growx, h 38!"
-        );
-
-        add(
-                typePanel,
-                "growx, wrap 12"
-        );
-
-        // =====================================================
-        // FORMULAIRE
-        // =====================================================
-
-        JPanel formPanel =
-                new RoundedPanel(14);
-
-        formPanel.setLayout(
-                new MigLayout(
-                        "fillx, insets 18",
-                        "[150][grow]",
-                        "[][][][][][][][]"
-                )
-        );
-
-        // -----------------------------------------------------
-        // PERSONNE
-        // -----------------------------------------------------
-
-        txtNom =
-                creerChamp();
-
-        txtPrenom =
-                creerChamp();
-
-        ajouterLigne(
-                formPanel,
-                "Nom :",
-                txtNom
-        );
-
-        ajouterLigne(
-                formPanel,
-                "Prénom :",
-                txtPrenom
-        );
-
-        // -----------------------------------------------------
-        // SOCIETE
-        // -----------------------------------------------------
-
-        txtRaisonSociale =
-                creerChamp();
-
-        txtNif =
-                creerChamp();
-
-        txtStat =
-                creerChamp();
-
-        ajouterLigne(
-                formPanel,
-                "Raison sociale :",
-                txtRaisonSociale
-        );
-
-        ajouterLigne(
-                formPanel,
-                "NIF :",
-                txtNif
-        );
-
-        ajouterLigne(
-                formPanel,
-                "STAT :",
-                txtStat
-        );
-
-        // -----------------------------------------------------
-        // INFORMATIONS COMMUNES
-        // -----------------------------------------------------
-
-        txtAdresse =
-                creerChamp();
-
-        txtEmail =
-                creerChamp();
-
-        txtTelephone =
-                creerChamp();
-
-        ajouterLigne(
-                formPanel,
-                "Adresse :",
-                txtAdresse
-        );
-
-        ajouterLigne(
-                formPanel,
-                "Email :",
-                txtEmail
-        );
-
-        ajouterLigne(
-                formPanel,
-                "Téléphone :",
-                txtTelephone
-        );
-
-        add(
-                formPanel,
-                "grow, wrap 15"
-        );
-
-        // =====================================================
-        // BOUTONS
-        // =====================================================
-
-        JPanel boutons =
-                new JPanel(
-                        new MigLayout(
-                                "insets 0",
-                                "[grow][]10[]"
-                        )
-                );
-
+        JPanel boutons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         boutons.setOpaque(false);
 
-        btnAnnuler =
-                new JButton(
-                        "Annuler"
-                );
+        btnAnnuler = creerBoutonSecondaire("Annuler");
+        btnEnregistrer = creerBoutonPrincipal("Enregistrer");
 
-        btnEnregistrer =
-                new JButton(
-                        "Enregistrer"
-                );
+        boutons.add(btnAnnuler);
+        boutons.add(btnEnregistrer);
 
-        styliserBoutonAnnuler(
-                btnAnnuler
-        );
+        pied.add(boutons, BorderLayout.EAST);
 
-        styliserBoutonPrincipal(
-                btnEnregistrer
-        );
+        add(pied, BorderLayout.SOUTH);
 
-        boutons.add(
-                new JLabel(),
-                "growx"
-        );
-
-        boutons.add(
-                btnAnnuler,
-                "h 40!"
-        );
-
-        boutons.add(
-                btnEnregistrer,
-                "h 40!"
-        );
-
-        add(
-                boutons,
-                "growx"
-        );
-
-        // =====================================================
-        // EVENEMENTS
-        // =====================================================
-
-        comboType.addActionListener(
-                this::changerType
-        );
-
-        btnEnregistrer.addActionListener(
-                e -> enregistrer()
-        );
-
-        btnAnnuler.addActionListener(
-                e -> fermer()
-        );
+        // ========================= ÉVÉNEMENTS =========================
+        comboType.addActionListener(this::changerType);
+        btnEnregistrer.addActionListener(e -> enregistrer());
+        btnAnnuler.addActionListener(e -> fermer());
 
         changerType(null);
     }
 
-    // =========================================================
-    // AJOUTER UNE LIGNE
-    // =========================================================
+    private JLabel creerLabel(String texte) {
+        JLabel label = new JLabel(texte);
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 13f));
+        label.setForeground(TEXT);
+        return label;
+    }
 
     private void ajouterLigne(
             JPanel panel,
             String label,
             JTextField field) {
 
-        JLabel lbl =
-                new JLabel(label);
-
-        lbl.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        12
-                )
-        );
-
-        lbl.setForeground(
-                new Color(55, 55, 55)
-        );
-
-        panel.add(
-                lbl
-        );
-
-        panel.add(
-                field,
-                "growx, h 38!, wrap 9"
-        );
+        panel.add(creerLabel(label));
+        panel.add(field, "growx, h 36!, wrap");
     }
 
-    // =========================================================
-    // CREER CHAMP
-    // =========================================================
-
     private JTextField creerChamp() {
+        JTextField field = new JTextField();
 
-        JTextField field =
-                new JTextField();
+        field.setFont(field.getFont().deriveFont(Font.PLAIN, 13f));
+        field.setBackground(SURFACE);
+        field.setForeground(TEXT);
+        field.setCaretColor(TEXT);
 
-        field.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        13
-                )
-        );
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER),
+                new EmptyBorder(0, 10, 0, 10)
+        ));
 
-        field.setBackground(WHITE);
-
-        field.setForeground(BLACK);
-
-        field.setCaretColor(BLACK);
-
-        field.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                BORDER
-                        ),
-                        new EmptyBorder(
-                                0,
-                                10,
-                                0,
-                                10
-                        )
-                )
-        );
+        field.putClientProperty("JTextField.showClearButton", true);
 
         return field;
     }
 
-    // =========================================================
-    // COMBOBOX
-    // =========================================================
-
-    private void styliserComboBox(
-            JComboBox<String> combo) {
-
-        combo.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        combo.setBackground(WHITE);
-        combo.setForeground(BLACK);
-
+    private void styliserComboBox(JComboBox<String> combo) {
+        combo.setFont(combo.getFont().deriveFont(Font.PLAIN, 13f));
+        combo.setBackground(SURFACE);
+        combo.setForeground(TEXT);
         combo.setFocusable(false);
     }
 
-    // =========================================================
-    // BOUTON PRINCIPAL
-    // =========================================================
+    private JButton creerBoutonPrincipal(String texte) {
+        JButton button = new JButton(texte) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? PRIMARY_HOVER : PRIMARY);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
 
-    private void styliserBoutonPrincipal(
-            JButton button) {
-
-        button.setBackground(BLACK);
-        button.setForeground(WHITE);
-
-        button.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        12
-                )
-        );
-
+        button.setContentAreaFilled(false);
+        button.setForeground(Color.WHITE);
+        button.setFont(button.getFont().deriveFont(Font.BOLD, 13f));
         button.setFocusPainted(false);
         button.setBorderPainted(false);
-        button.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
-        );
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setBorder(new EmptyBorder(11, 26, 11, 26));
 
-        button.setBorder(
-                BorderFactory.createEmptyBorder(
-                        0,
-                        20,
-                        0,
-                        20
-                )
-        );
+        return button;
     }
 
-    // =========================================================
-    // BOUTON ANNULER
-    // =========================================================
+    private JButton creerBoutonSecondaire(String texte) {
+        JButton button = new JButton(texte);
 
-    private void styliserBoutonAnnuler(
-            JButton button) {
-
-        button.setBackground(WHITE);
-        button.setForeground(BLACK);
-
-        button.setFont(
-                new Font(
-                        "SansSerif",
-                        Font.BOLD,
-                        12
-                )
-        );
-
+        button.setBackground(SURFACE);
+        button.setForeground(TEXT);
+        button.setFont(button.getFont().deriveFont(Font.PLAIN, 13f));
         button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER),
+                new EmptyBorder(11, 22, 11, 22)
+        ));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-        button.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                BORDER
-                        ),
-                        BorderFactory.createEmptyBorder(
-                                0,
-                                18,
-                                0,
-                                18
-                        )
-                )
-        );
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setBackground(LIGHT_GRAY);
+            }
 
-        button.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
-        );
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setBackground(SURFACE);
+            }
+        });
+
+        return button;
     }
 
-    // =========================================================
-    // CHANGEMENT DE TYPE
-    // =========================================================
-
-    private void changerType(
-            ActionEvent event) {
-
+    private void changerType(ActionEvent event) {
         boolean personne =
-                "PERSONNE".equals(
-                        comboType.getSelectedItem()
-                );
-
-        // PERSONNE
+                "PERSONNE".equals(comboType.getSelectedItem());
 
         txtNom.setEnabled(personne);
         txtPrenom.setEnabled(personne);
 
-        // SOCIETE
-
-        txtRaisonSociale.setEnabled(
-                !personne
-        );
-
-        txtNif.setEnabled(
-                !personne
-        );
-
-        txtStat.setEnabled(
-                !personne
-        );
+        txtRaisonSociale.setEnabled(!personne);
+        txtNif.setEnabled(!personne);
+        txtStat.setEnabled(!personne);
 
         if (personne) {
+            activerChamp(txtNom);
+            activerChamp(txtPrenom);
 
-            txtNom.setBackground(WHITE);
-            txtPrenom.setBackground(WHITE);
-
-            txtRaisonSociale.setBackground(
-                    new Color(235, 235, 235)
-            );
-
-            txtNif.setBackground(
-                    new Color(235, 235, 235)
-            );
-
-            txtStat.setBackground(
-                    new Color(235, 235, 235)
-            );
-
+            desactiverChamp(txtRaisonSociale);
+            desactiverChamp(txtNif);
+            desactiverChamp(txtStat);
         } else {
+            desactiverChamp(txtNom);
+            desactiverChamp(txtPrenom);
 
-            txtNom.setBackground(
-                    new Color(235, 235, 235)
-            );
-
-            txtPrenom.setBackground(
-                    new Color(235, 235, 235)
-            );
-
-            txtRaisonSociale.setBackground(
-                    WHITE
-            );
-
-            txtNif.setBackground(
-                    WHITE
-            );
-
-            txtStat.setBackground(
-                    WHITE
-            );
+            activerChamp(txtRaisonSociale);
+            activerChamp(txtNif);
+            activerChamp(txtStat);
         }
     }
 
-    // =========================================================
-    // CHARGER FOURNISSEUR
-    // =========================================================
+    private void activerChamp(JTextField field) {
+        field.setBackground(SURFACE);
+        field.setForeground(TEXT);
+    }
 
-    private void chargerFournisseur(
-            Fournisseur fournisseur) {
+    private void desactiverChamp(JTextField field) {
+        field.setBackground(DISABLED);
+        field.setForeground(MUTED);
+    }
 
-        idModification =
-                fournisseur.getIdFournisseur();
+    private void chargerFournisseur(Fournisseur fournisseur) {
+        idModification = fournisseur.getIdFournisseur();
 
-        comboType.setSelectedItem(
-                fournisseur.getTypeFournisseur()
-        );
+        comboType.setSelectedItem(fournisseur.getTypeFournisseur());
 
-        txtAdresse.setText(
-                valeur(
-                        fournisseur.getAdresse()
-                )
-        );
-
-        txtEmail.setText(
-                valeur(
-                        fournisseur.getEmail()
-                )
-        );
-
-        txtTelephone.setText(
-                valeur(
-                        fournisseur.getTelephone()
-                )
-        );
+        txtAdresse.setText(valeur(fournisseur.getAdresse()));
+        txtEmail.setText(valeur(fournisseur.getEmail()));
+        txtTelephone.setText(valeur(fournisseur.getTelephone()));
 
         try {
-
-            if ("PERSONNE".equals(
-                    fournisseur.getTypeFournisseur())) {
-
+            if ("PERSONNE".equals(fournisseur.getTypeFournisseur())) {
                 Personne personne =
-                        personneService
-                                .findByFournisseur(
-                                        fournisseur
-                                                .getIdFournisseur()
-                                );
+                        personneService.findByFournisseur(
+                                fournisseur.getIdFournisseur()
+                        );
 
                 if (personne != null) {
-
-                    txtNom.setText(
-                            valeur(
-                                    personne.getNom()
-                            )
-                    );
-
-                    txtPrenom.setText(
-                            valeur(
-                                    personne.getPrenom()
-                            )
-                    );
+                    txtNom.setText(valeur(personne.getNom()));
+                    txtPrenom.setText(valeur(personne.getPrenom()));
                 }
 
             } else {
-
                 Societe societe =
-                        societeService
-                                .findByFournisseur(
-                                        fournisseur
-                                                .getIdFournisseur()
-                                );
+                        societeService.findByFournisseur(
+                                fournisseur.getIdFournisseur()
+                        );
 
                 if (societe != null) {
-
                     txtRaisonSociale.setText(
-                            valeur(
-                                    societe
-                                            .getRaisonSociale()
-                            )
+                            valeur(societe.getRaisonSociale())
                     );
-
-                    txtNif.setText(
-                            valeur(
-                                    societe.getNif()
-                            )
-                    );
-
-                    txtStat.setText(
-                            valeur(
-                                    societe.getStat()
-                            )
-                    );
+                    txtNif.setText(valeur(societe.getNif()));
+                    txtStat.setText(valeur(societe.getStat()));
                 }
             }
 
             changerType(null);
-
-            btnEnregistrer.setText(
-                    "Modifier"
-            );
+            btnEnregistrer.setText("Modifier");
 
         } catch (Exception e) {
-
             JOptionPane.showMessageDialog(
                     this,
-                    "Erreur lors du chargement :\n"
-                            + e.getMessage(),
+                    "Erreur lors du chargement :\n" + e.getMessage(),
                     "Erreur",
                     JOptionPane.ERROR_MESSAGE
             );
         }
     }
 
-    // =========================================================
-    // ENREGISTRER
-    // =========================================================
-
     private void enregistrer() {
-
         try {
+            String type = comboType.getSelectedItem().toString();
 
-            String type =
-                    comboType
-                            .getSelectedItem()
-                            .toString();
+            String adresse = txtAdresse.getText().trim();
+            String email = txtEmail.getText().trim();
+            String telephone = txtTelephone.getText().trim();
 
-            String adresse =
-                    txtAdresse
-                            .getText()
-                            .trim();
-
-            String email =
-                    txtEmail
-                            .getText()
-                            .trim();
-
-            String telephone =
-                    txtTelephone
-                            .getText()
-                            .trim();
-
-            Fournisseur fournisseur =
-                    new Fournisseur();
-
-            fournisseur.setTypeFournisseur(
-                    type
-            );
-
-            fournisseur.setAdresse(
-                    adresse
-            );
-
-            fournisseur.setEmail(
-                    email
-            );
-
-            fournisseur.setTelephone(
-                    telephone
-            );
-
-            // =================================================
-            // PERSONNE
-            // =================================================
+            Fournisseur fournisseur = new Fournisseur();
+            fournisseur.setTypeFournisseur(type);
+            fournisseur.setAdresse(adresse);
+            fournisseur.setEmail(email);
+            fournisseur.setTelephone(telephone);
 
             if ("PERSONNE".equals(type)) {
 
-                String nom =
-                        txtNom
-                                .getText()
-                                .trim();
-
-                String prenom =
-                        txtPrenom
-                                .getText()
-                                .trim();
+                String nom = txtNom.getText().trim();
+                String prenom = txtPrenom.getText().trim();
 
                 if (nom.isEmpty()) {
-
-                    JOptionPane.showMessageDialog(
-                            this,
+                    afficherValidation(
                             "Le nom est obligatoire.",
-                            "Validation",
-                            JOptionPane.WARNING_MESSAGE
+                            txtNom
                     );
-
-                    txtNom.requestFocus();
-
                     return;
                 }
 
                 if (prenom.isEmpty()) {
-
-                    JOptionPane.showMessageDialog(
-                            this,
+                    afficherValidation(
                             "Le prénom est obligatoire.",
-                            "Validation",
-                            JOptionPane.WARNING_MESSAGE
+                            txtPrenom
                     );
-
-                    txtPrenom.requestFocus();
-
                     return;
                 }
 
-                Personne personne =
-                        new Personne();
-
+                Personne personne = new Personne();
                 personne.setNom(nom);
                 personne.setPrenom(prenom);
 
                 if (idModification == -1) {
-
                     fournisseurService.ajouter(
                             fournisseur,
                             personne,
                             null
                     );
 
-                    afficherSucces(
-                            "Fournisseur ajouté avec succès."
-                    );
+                    afficherSucces("Fournisseur ajouté avec succès.");
 
                 } else {
+                    fournisseur.setIdFournisseur(idModification);
 
-                    fournisseur.setIdFournisseur(
-                            idModification
-                    );
+                    fournisseurService.modifier(fournisseur);
 
-                    fournisseurService.modifier(
-                            fournisseur
-                    );
+                    personne.setIdFournisseur(idModification);
+                    personneService.modifier(personne);
 
-                    personne.setIdFournisseur(
-                            idModification
-                    );
-
-                    personneService.modifier(
-                            personne
-                    );
-
-                    afficherSucces(
-                            "Fournisseur modifié avec succès."
-                    );
+                    afficherSucces("Fournisseur modifié avec succès.");
                 }
-
-            // =================================================
-            // SOCIETE
-            // =================================================
 
             } else {
 
                 String raisonSociale =
-                        txtRaisonSociale
-                                .getText()
-                                .trim();
+                        txtRaisonSociale.getText().trim();
 
-                String nif =
-                        txtNif
-                                .getText()
-                                .trim();
-
-                String stat =
-                        txtStat
-                                .getText()
-                                .trim();
+                String nif = txtNif.getText().trim();
+                String stat = txtStat.getText().trim();
 
                 if (raisonSociale.isEmpty()) {
-
-                    JOptionPane.showMessageDialog(
-                            this,
+                    afficherValidation(
                             "La raison sociale est obligatoire.",
-                            "Validation",
-                            JOptionPane.WARNING_MESSAGE
+                            txtRaisonSociale
                     );
-
-                    txtRaisonSociale.requestFocus();
-
                     return;
                 }
 
-                Societe societe =
-                        new Societe();
-
-                societe.setRaisonSociale(
-                        raisonSociale
-                );
-
+                Societe societe = new Societe();
+                societe.setRaisonSociale(raisonSociale);
                 societe.setNif(nif);
                 societe.setStat(stat);
 
                 if (idModification == -1) {
-
                     fournisseurService.ajouter(
                             fournisseur,
                             null,
                             societe
                     );
 
-                    afficherSucces(
-                            "Fournisseur ajouté avec succès."
-                    );
+                    afficherSucces("Fournisseur ajouté avec succès.");
 
                 } else {
+                    fournisseur.setIdFournisseur(idModification);
 
-                    fournisseur.setIdFournisseur(
-                            idModification
-                    );
+                    fournisseurService.modifier(fournisseur);
 
-                    fournisseurService.modifier(
-                            fournisseur
-                    );
+                    societe.setIdFournisseur(idModification);
+                    societeService.modifier(societe);
 
-                    societe.setIdFournisseur(
-                            idModification
-                    );
-
-                    societeService.modifier(
-                            societe
-                    );
-
-                    afficherSucces(
-                            "Fournisseur modifié avec succès."
-                    );
+                    afficherSucces("Fournisseur modifié avec succès.");
                 }
             }
 
             fermer();
 
         } catch (Exception e) {
-
             JOptionPane.showMessageDialog(
                     this,
-                    "Erreur :\n"
-                            + e.getMessage(),
+                    "Erreur :\n" + e.getMessage(),
                     "Erreur",
                     JOptionPane.ERROR_MESSAGE
             );
         }
     }
 
-    // =========================================================
-    // MESSAGE SUCCES
-    // =========================================================
+    private void afficherValidation(
+            String message,
+            JTextField field) {
 
-    private void afficherSucces(
-            String message) {
+        JOptionPane.showMessageDialog(
+                this,
+                message,
+                "Validation",
+                JOptionPane.WARNING_MESSAGE
+        );
 
+        field.requestFocus();
+    }
+
+    private void afficherSucces(String message) {
         JOptionPane.showMessageDialog(
                 this,
                 message,
@@ -1010,84 +498,13 @@ public class FournisseurForm extends JPanel {
         );
     }
 
-    // =========================================================
-    // FERMER
-    // =========================================================
-
     private void fermer() {
-
         if (dialog != null) {
-
             dialog.dispose();
         }
     }
 
-    // =========================================================
-    // VALEUR
-    // =========================================================
-
-    private String valeur(
-            String valeur) {
-
-        return valeur == null
-                ? ""
-                : valeur;
-    }
-
-    // =========================================================
-    // PANEL ARRONDI
-    // =========================================================
-
-    private static class RoundedPanel
-            extends JPanel {
-
-        private final int radius;
-
-        public RoundedPanel(
-                int radius) {
-
-            this.radius = radius;
-
-            setOpaque(false);
-        }
-
-        @Override
-        protected void paintComponent(
-                Graphics g) {
-
-            Graphics2D g2 =
-                    (Graphics2D) g.create();
-
-            g2.setRenderingHint(
-                    RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON
-            );
-
-            g2.setColor(WHITE);
-
-            g2.fillRoundRect(
-                    0,
-                    0,
-                    getWidth(),
-                    getHeight(),
-                    radius,
-                    radius
-            );
-
-            g2.setColor(BORDER);
-
-            g2.drawRoundRect(
-                    0,
-                    0,
-                    getWidth() - 1,
-                    getHeight() - 1,
-                    radius,
-                    radius
-            );
-
-            g2.dispose();
-
-            super.paintComponent(g);
-        }
+    private String valeur(String valeur) {
+        return valeur == null ? "" : valeur;
     }
 }
