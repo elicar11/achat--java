@@ -100,7 +100,10 @@ public class DatabaseInitializer {
                 date_facture TEXT NOT NULL,
                 montant_total_ht REAL DEFAULT 0,
                 montant_tva REAL DEFAULT 0,
-                etat_paiement TEXT NOT NULL DEFAULT 'NON_PAYEE'
+                etat_paiement TEXT NOT NULL DEFAULT 'NON_PAYEE',
+                id_commande INTEGER,
+                FOREIGN KEY (id_commande)
+                    REFERENCES COMMANDE(id_commande)
             );
             """;
 
@@ -148,6 +151,28 @@ public class DatabaseInitializer {
             statement.execute(sqlFacture);
             statement.execute(sqlReception);
             statement.execute(sqlLigneReception);
+
+            // ---------------------------------------------------
+            // MIGRATION : ajoute id_commande si la table FACTURE
+            // existait déjà avant cette colonne (CREATE TABLE
+            // IF NOT EXISTS ne modifie pas une table existante).
+            // ---------------------------------------------------
+
+            try {
+
+                statement.execute(
+                        "ALTER TABLE FACTURE ADD COLUMN id_commande INTEGER "
+                        + "REFERENCES COMMANDE(id_commande)"
+                );
+
+                System.out.println(
+                        "Colonne id_commande ajoutée à FACTURE."
+                );
+
+            } catch (SQLException e) {
+
+                // La colonne existe déjà : rien à faire.
+            }
 
             System.out.println("Toutes les tables ont été créées avec succès !");
 

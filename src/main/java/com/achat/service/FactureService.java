@@ -77,6 +77,13 @@ public class FactureService {
                 facture.getEtatPaiement()
         );
 
+        // La commande facturée est obligatoire
+        if (facture.getIdCommande() <= 0) {
+            throw new IllegalArgumentException(
+                    "Veuillez sélectionner la commande à facturer."
+            );
+        }
+
         // Ajouter dans la base
         factureDAO.ajouter(facture);
     }
@@ -210,6 +217,13 @@ public class FactureService {
         verifierEtatPaiement(
                 facture.getEtatPaiement()
         );
+
+        // La commande facturée est obligatoire
+        if (facture.getIdCommande() <= 0) {
+            throw new IllegalArgumentException(
+                    "Veuillez sélectionner la commande à facturer."
+            );
+        }
 
         factureDAO.modifier(facture);
     }

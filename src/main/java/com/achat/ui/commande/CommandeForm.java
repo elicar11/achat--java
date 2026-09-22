@@ -3,11 +3,15 @@ package com.achat.ui.commande;
 import com.achat.model.Commande;
 import com.achat.model.Fournisseur;
 import com.achat.model.LigneCommande;
+import com.achat.model.Personne;
 import com.achat.model.Produit;
+import com.achat.model.Societe;
 
 import com.achat.service.CommandeService;
 import com.achat.service.FournisseurService;
+import com.achat.service.PersonneService;
 import com.achat.service.ProduitService;
+import com.achat.service.SocieteService;
 
 import net.miginfocom.swing.MigLayout;
 
@@ -58,6 +62,10 @@ public class CommandeForm extends JPanel {
 
     private final FournisseurService fournisseurService;
 
+    private final PersonneService personneService;
+
+    private final SocieteService societeService;
+
     private final ProduitService produitService;
 
     // =========================================================
@@ -101,6 +109,12 @@ public class CommandeForm extends JPanel {
 
         fournisseurService =
                 new FournisseurService();
+
+        personneService =
+                new PersonneService();
+
+        societeService =
+                new SocieteService();
 
         produitService =
                 new ProduitService();
@@ -794,7 +808,8 @@ public class CommandeForm extends JPanel {
 
                 comboFournisseur.addItem(
                         new FournisseurItem(
-                                fournisseur
+                                fournisseur,
+                                obtenirNomFournisseur(fournisseur)
                         )
                 );
             }
@@ -809,6 +824,56 @@ public class CommandeForm extends JPanel {
                     JOptionPane.ERROR_MESSAGE
             );
         }
+    }
+
+    /**
+     * Résout le nom d'affichage d'un fournisseur
+     * (nom + prénom pour une personne, raison sociale
+     * pour une société) au lieu de son type brut.
+     */
+    private String obtenirNomFournisseur(
+            Fournisseur fournisseur
+    ) {
+
+        if (fournisseur == null) {
+            return "";
+        }
+
+        try {
+
+            int id = fournisseur.getIdFournisseur();
+
+            if ("PERSONNE".equals(fournisseur.getTypeFournisseur())) {
+
+                Personne personne =
+                        personneService.findByFournisseur(id);
+
+                if (personne != null) {
+                    return (personne.getNom() == null ? "" : personne.getNom())
+                            + " "
+                            + (personne.getPrenom() == null ? "" : personne.getPrenom());
+                }
+
+            } else {
+
+                Societe societe =
+                        societeService.findByFournisseur(id);
+
+                if (societe != null) {
+                    return societe.getRaisonSociale() == null
+                            ? ""
+                            : societe.getRaisonSociale();
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Erreur récupération nom fournisseur : "
+                            + e.getMessage()
+            );
+        }
+
+        return "Fournisseur #" + fournisseur.getIdFournisseur();
     }
 
     // =========================================================
@@ -1646,13 +1711,18 @@ public class CommandeForm extends JPanel {
     private static class FournisseurItem {
 
         private final Fournisseur fournisseur;
+        private final String nomAffiche;
 
         public FournisseurItem(
-                Fournisseur fournisseur
+                Fournisseur fournisseur,
+                String nomAffiche
         ) {
 
             this.fournisseur =
                     fournisseur;
+
+            this.nomAffiche =
+                    nomAffiche;
         }
 
         public Fournisseur getFournisseur() {
@@ -1668,12 +1738,11 @@ public class CommandeForm extends JPanel {
                 return "";
             }
 
-            return "Fournisseur #"
+            return "#"
                     + fournisseur
                     .getIdFournisseur()
                     + "  •  "
-                    + fournisseur
-                    .getTypeFournisseur();
+                    + nomAffiche;
         }
     }
 

@@ -1,19 +1,26 @@
 package com.achat.ui.proposer;
 
 import com.achat.model.Fournisseur;
+import com.achat.model.Personne;
 import com.achat.model.Produit;
 import com.achat.model.Proposer;
+import com.achat.model.Societe;
 import com.achat.service.FournisseurService;
+import com.achat.service.PersonneService;
 import com.achat.service.ProduitService;
 import com.achat.service.ProposerService;
+import com.achat.service.SocieteService;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,6 +37,8 @@ import java.util.List;
 public class ProposerPanel extends JPanel {
 
     private final FournisseurService fournisseurService;
+    private final PersonneService personneService;
+    private final SocieteService societeService;
     private final ProduitService produitService;
     private final ProposerService proposerService;
 
@@ -45,6 +54,13 @@ public class ProposerPanel extends JPanel {
     private JButton btnSupprimer;
     private JButton btnActualiser;
 
+    private JLabel lblPagination;
+    private JButton btnPrecedent;
+    private JButton btnSuivant;
+    private List<Proposer> propositionsCourantes = new ArrayList<>();
+    private int pageActuelle = 1;
+    private static final int TAILLE_PAGE = 8;
+
     private static final Color PRIMARY = new Color(25, 25, 25);
     private static final Color WHITE = Color.WHITE;
     private static final Color LIGHT_BG = new Color(248, 249, 251);
@@ -56,6 +72,8 @@ public class ProposerPanel extends JPanel {
     public ProposerPanel() {
 
         fournisseurService = new FournisseurService();
+        personneService = new PersonneService();
+        societeService = new SocieteService();
         produitService = new ProduitService();
         proposerService = new ProposerService();
 
@@ -241,25 +259,36 @@ public class ProposerPanel extends JPanel {
 
         tablePanel.add(scrollPane, "grow, push, wrap");
 
-        JPanel actionsPanel = new JPanel(
-                new MigLayout(
-                        "insets 0",
-                        "[][]",
-                        "[]"
-                )
+        JPanel pagination = new JPanel(new BorderLayout());
+        pagination.setOpaque(false);
+        pagination.setBorder(
+                BorderFactory.createEmptyBorder(12, 4, 0, 4)
         );
-        actionsPanel.setOpaque(false);
 
-        btnModifier = creerBoutonSecondaire("Modifier");
-        btnSupprimer = creerBoutonSupprimer("Supprimer");
+        lblPagination = new JLabel("Page 1 / 1");
+        lblPagination.setFont(
+                new Font("SansSerif", Font.PLAIN, 13)
+        );
+        lblPagination.setForeground(GRAY);
 
-        btnModifier.addActionListener(e -> modifierSelection());
-        btnSupprimer.addActionListener(e -> supprimerSelection());
+        JPanel boutonsPagination = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 8, 0)
+        );
+        boutonsPagination.setOpaque(false);
 
-        actionsPanel.add(btnModifier);
-        actionsPanel.add(btnSupprimer);
+        btnPrecedent = creerBoutonPagination("‹ Précédent");
+        btnSuivant = creerBoutonPagination("Suivant ›");
 
-        tablePanel.add(actionsPanel, "right");
+        btnPrecedent.addActionListener(e -> pagePrecedente());
+        btnSuivant.addActionListener(e -> pageSuivante());
+
+        boutonsPagination.add(btnPrecedent);
+        boutonsPagination.add(btnSuivant);
+
+        pagination.add(lblPagination, BorderLayout.WEST);
+        pagination.add(boutonsPagination, BorderLayout.EAST);
+
+        contenuPanel.add(pagination, BorderLayout.SOUTH);
 
         contenuPanel.add(
                 tablePanel,
@@ -297,7 +326,7 @@ public class ProposerPanel extends JPanel {
                     int row,
                     int column
             ) {
-                return false;
+                return column == 3;
             }
         };
 
@@ -350,7 +379,13 @@ public class ProposerPanel extends JPanel {
                 .setCellRenderer(new PrixRenderer());
 
         table.getColumnModel().getColumn(3)
-                .setCellRenderer(new ActionRenderer());
+                .setPreferredWidth(125);
+
+        table.getColumnModel().getColumn(3)
+                .setCellRenderer(new ActionsRenderer());
+
+        table.getColumnModel().getColumn(3)
+                .setCellEditor(new ActionsEditor());
 
         // Double-clic = modification
         table.addMouseListener(
@@ -385,7 +420,10 @@ public class ProposerPanel extends JPanel {
             for (Fournisseur fournisseur : fournisseurs) {
 
                 comboFournisseur.addItem(
-                        new FournisseurItem(fournisseur)
+                        new FournisseurItem(
+                                fournisseur,
+                                obtenirNomFournisseur(fournisseur)
+                        )
                 );
             }
 
@@ -395,6 +433,54 @@ public class ProposerPanel extends JPanel {
                     e
             );
         }
+    }
+
+    /**
+     * Résout le nom d'affichage d'un fournisseur
+     * (nom + prénom pour une personne, raison sociale
+     * pour une société) au lieu de son type brut.
+     */
+    private String obtenirNomFournisseur(Fournisseur fournisseur) {
+
+        if (fournisseur == null) {
+            return "";
+        }
+
+        try {
+
+            int id = fournisseur.getIdFournisseur();
+
+            if ("PERSONNE".equals(fournisseur.getTypeFournisseur())) {
+
+                Personne personne =
+                        personneService.findByFournisseur(id);
+
+                if (personne != null) {
+                    return (personne.getNom() == null ? "" : personne.getNom())
+                            + " "
+                            + (personne.getPrenom() == null ? "" : personne.getPrenom());
+                }
+
+            } else {
+
+                Societe societe =
+                        societeService.findByFournisseur(id);
+
+                if (societe != null) {
+                    return societe.getRaisonSociale() == null
+                            ? ""
+                            : societe.getRaisonSociale();
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Erreur récupération nom fournisseur : "
+                            + e.getMessage()
+            );
+        }
+
+        return "Fournisseur #" + fournisseur.getIdFournisseur();
     }
 
     private void chargerProduits() {
@@ -424,53 +510,116 @@ public class ProposerPanel extends JPanel {
     private void chargerPropositions() {
 
         try {
-
-            List<Proposer> propositions =
-                    proposerService.findAll();
-
-            tableModel.setRowCount(0);
-
-            for (Proposer proposition : propositions) {
-
-                Fournisseur fournisseur =
-                        fournisseurService.findById(
-                                proposition.getIdFournisseur()
-                        );
-
-                Produit produit =
-                        produitService.findById(
-                                proposition.getIdProduit()
-                        );
-
-                String fournisseurTexte =
-                        fournisseur == null
-                                ? "#" + proposition.getIdFournisseur()
-                                : "#" + fournisseur.getIdFournisseur()
-                                + " - "
-                                + fournisseur.getTypeFournisseur();
-
-                String produitTexte =
-                        produit == null
-                                ? "#" + proposition.getIdProduit()
-                                : "#" + produit.getIdProduit()
-                                + " - "
-                                + produit.getDesignation();
-
-                tableModel.addRow(
-                        new Object[]{
-                                fournisseurTexte,
-                                produitTexte,
-                                proposition.getPrixAchatSpecifique(),
-                                "Modifier"
-                        }
-                );
-            }
+            propositionsCourantes = new ArrayList<>(
+                    proposerService.findAll()
+            );
+            pageActuelle = 1;
+            afficherPage();
 
         } catch (Exception e) {
             afficherErreur(
                     "Erreur lors du chargement des propositions.",
                     e
             );
+        }
+    }
+
+    private void afficherPage() {
+
+        tableModel.setRowCount(0);
+
+        int total = propositionsCourantes.size();
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(total / (double) TAILLE_PAGE)
+        );
+
+        if (pageActuelle > totalPages) {
+            pageActuelle = totalPages;
+        }
+
+        int debut = (pageActuelle - 1) * TAILLE_PAGE;
+        int fin = Math.min(
+                debut + TAILLE_PAGE,
+                total
+        );
+
+        for (int i = debut; i < fin; i++) {
+
+            Proposer proposition = propositionsCourantes.get(i);
+
+            Fournisseur fournisseur = null;
+            Produit produit = null;
+
+            try {
+                fournisseur = fournisseurService.findById(
+                        proposition.getIdFournisseur()
+                );
+
+                produit = produitService.findById(
+                        proposition.getIdProduit()
+                );
+            } catch (java.sql.SQLException e) {
+                // Si un fournisseur ou produit ne peut pas être chargé,
+                // on conserve au moins son identifiant dans le tableau.
+                System.err.println(
+                        "Erreur lors du chargement de la proposition : "
+                                + e.getMessage()
+                );
+            }
+
+            String fournisseurTexte =
+                    fournisseur == null
+                            ? "#" + proposition.getIdFournisseur()
+                            : "#" + fournisseur.getIdFournisseur()
+                            + " - "
+                            + obtenirNomFournisseur(fournisseur);
+
+            String produitTexte =
+                    produit == null
+                            ? "#" + proposition.getIdProduit()
+                            : "#" + produit.getIdProduit()
+                            + " - "
+                            + produit.getDesignation();
+
+            tableModel.addRow(new Object[]{
+                    fournisseurTexte,
+                    produitTexte,
+                    proposition.getPrixAchatSpecifique(),
+                    ""
+            });
+        }
+
+        String mot = total <= 1 ? "proposition" : "propositions";
+        lblPagination.setText(
+                "Page " + pageActuelle
+                        + " / " + totalPages
+                        + " (" + total + " " + mot + ")"
+        );
+
+        btnPrecedent.setEnabled(pageActuelle > 1);
+        btnSuivant.setEnabled(pageActuelle < totalPages);
+    }
+
+    private void pagePrecedente() {
+        if (pageActuelle > 1) {
+            pageActuelle--;
+            afficherPage();
+        }
+    }
+
+    private void pageSuivante() {
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(
+                        propositionsCourantes.size()
+                                / (double) TAILLE_PAGE
+                )
+        );
+
+        if (pageActuelle < totalPages) {
+            pageActuelle++;
+            afficherPage();
         }
     }
 
@@ -894,6 +1043,121 @@ public class ProposerPanel extends JPanel {
         return bouton;
     }
 
+    private JButton creerBoutonPagination(String texte) {
+        JButton bouton = new JButton(texte);
+        bouton.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        bouton.setForeground(TEXT);
+        bouton.setBackground(WHITE);
+        bouton.setFocusPainted(false);
+        bouton.setBorder(
+                BorderFactory.createCompoundBorder(
+                        new RoundedBorder(BORDER, 1, 8),
+                        BorderFactory.createEmptyBorder(7, 12, 7, 12)
+                )
+        );
+        bouton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return bouton;
+    }
+
+    // ================================================================
+    // ICÔNES D'ACTION
+    // ================================================================
+
+    private static class PencilIcon implements Icon {
+        private final Color color;
+        private final int size;
+        PencilIcon(Color color, int size) { this.color = color; this.size = size; }
+        public int getIconWidth() { return size; }
+        public int getIconHeight() { return size; }
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawLine(x + 5, y + 13, x + 13, y + 5);
+            g2.drawLine(x + 4, y + 14, x + 7, y + 13);
+            g2.drawLine(x + 13, y + 5, x + 11, y + 3);
+            g2.dispose();
+        }
+    }
+
+    private static class TrashIcon implements Icon {
+        private final Color color;
+        private final int size;
+        TrashIcon(Color color, int size) { this.color = color; this.size = size; }
+        public int getIconWidth() { return size; }
+        public int getIconHeight() { return size; }
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawLine(x + 4, y + 5, x + 14, y + 5);
+            g2.drawLine(x + 7, y + 3, x + 11, y + 3);
+            g2.drawRoundRect(x + 5, y + 6, 8, 10, 2, 2);
+            g2.dispose();
+        }
+    }
+
+    private class ActionsRenderer extends JPanel implements TableCellRenderer {
+        ActionsRenderer() {
+            super(new FlowLayout(FlowLayout.CENTER, 7, 10));
+            setOpaque(true);
+            add(new JLabel(new PencilIcon(new Color(70, 110, 210), 18)));
+            add(new JLabel(new TrashIcon(RED, 18)));
+        }
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focus, int row, int column) {
+            setBackground(selected ? new Color(242, 244, 247) : WHITE);
+            return this;
+        }
+    }
+
+    private class ActionsEditor extends AbstractCellEditor implements TableCellEditor {
+        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 7, 10));
+        private int ligneCourante = -1;
+
+        ActionsEditor() {
+            panel.setOpaque(true);
+            JButton modifier = new JButton(new PencilIcon(new Color(70, 110, 210), 18));
+            JButton supprimer = new JButton(new TrashIcon(RED, 18));
+            configurerBoutonAction(modifier);
+            configurerBoutonAction(supprimer);
+
+            modifier.addActionListener(e -> {
+                fireEditingStopped();
+                table.setRowSelectionInterval(ligneCourante, ligneCourante);
+                modifierSelection();
+            });
+            supprimer.addActionListener(e -> {
+                fireEditingStopped();
+                table.setRowSelectionInterval(ligneCourante, ligneCourante);
+                supprimerSelection();
+            });
+            panel.add(modifier);
+            panel.add(supprimer);
+        }
+
+        private void configurerBoutonAction(JButton bouton) {
+            bouton.setFocusPainted(false);
+            bouton.setBorderPainted(false);
+            bouton.setContentAreaFilled(false);
+            bouton.setOpaque(false);
+            bouton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            bouton.setPreferredSize(new Dimension(28, 28));
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean selected, int row, int column) {
+            ligneCourante = row;
+            panel.setBackground(selected ? new Color(242, 244, 247) : WHITE);
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() { return ""; }
+    }
+
     // ================================================================
     // MESSAGES
     // ================================================================
@@ -932,14 +1196,17 @@ public class ProposerPanel extends JPanel {
         private final int id;
         private final String texte;
 
-        public FournisseurItem(Fournisseur fournisseur) {
+        public FournisseurItem(
+                Fournisseur fournisseur,
+                String nomAffiche
+        ) {
 
             this.id = fournisseur.getIdFournisseur();
 
             this.texte =
                     "#" + fournisseur.getIdFournisseur()
                             + " - "
-                            + fournisseur.getTypeFournisseur();
+                            + nomAffiche;
         }
 
         @Override

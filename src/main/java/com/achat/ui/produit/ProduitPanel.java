@@ -8,10 +8,14 @@ import javax.swing.border.AbstractBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import static java.awt.Color.BLUE;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
 import java.util.List;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 
 /**
  * Interface de gestion des produits.
@@ -32,6 +36,15 @@ public class ProduitPanel extends JPanel {
     private JButton btnActualiser;
     private JButton btnAjouter;
     private JButton btnRechercher;
+
+    private JLabel lblPagination;
+    private JButton btnPrecedent;
+    private JButton btnSuivant;
+
+    private List<Produit> produitsCourants = new ArrayList<>();
+    private int pageActuelle = 1;
+
+    private static final int PAGE_SIZE = 8;
 
     private static final Color PRIMARY = new Color(25, 25, 25);
     private static final Color WHITE = Color.WHITE;
@@ -239,6 +252,39 @@ public class ProduitPanel extends JPanel {
                 BorderLayout.CENTER
         );
 
+        JPanel pagination = new JPanel(
+                new BorderLayout(10, 0)
+        );
+        pagination.setOpaque(false);
+
+        lblPagination = new JLabel();
+        lblPagination.setFont(
+                new Font("SansSerif", Font.PLAIN, 13)
+        );
+        lblPagination.setForeground(GRAY);
+
+        JPanel boutonsPagination = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 8, 0)
+        );
+        boutonsPagination.setOpaque(false);
+
+        btnPrecedent = creerBoutonPagination("‹ Précédent");
+        btnSuivant = creerBoutonPagination("Suivant ›");
+
+        btnPrecedent.addActionListener(e -> pagePrecedente());
+        btnSuivant.addActionListener(e -> pageSuivante());
+
+        boutonsPagination.add(btnPrecedent);
+        boutonsPagination.add(btnSuivant);
+
+        pagination.add(lblPagination, BorderLayout.WEST);
+        pagination.add(boutonsPagination, BorderLayout.EAST);
+
+        mainPanel.add(
+                pagination,
+                BorderLayout.SOUTH
+        );
+
         add(
                 mainPanel,
                 BorderLayout.CENTER
@@ -256,7 +302,8 @@ public class ProduitPanel extends JPanel {
                 "Description",
                 "Stock actuel",
                 "Stock alerte",
-                "État"
+                "État",
+                "Actions"
         };
 
         tableModel = new DefaultTableModel(
@@ -269,7 +316,7 @@ public class ProduitPanel extends JPanel {
                     int row,
                     int column
             ) {
-                return false;
+                return column == 6;
             }
         };
 
@@ -388,6 +435,13 @@ public class ProduitPanel extends JPanel {
         table.getColumnModel().getColumn(3).setPreferredWidth(100);
         table.getColumnModel().getColumn(4).setPreferredWidth(100);
         table.getColumnModel().getColumn(5).setPreferredWidth(110);
+        table.getColumnModel().getColumn(6).setPreferredWidth(115);
+
+        table.getColumnModel().getColumn(6)
+                .setCellRenderer(new ActionCellRenderer());
+
+        table.getColumnModel().getColumn(6)
+                .setCellEditor(new ActionCellEditor());
 
         table.addMouseListener(new MouseAdapter() {
             @Override
@@ -406,19 +460,40 @@ public class ProduitPanel extends JPanel {
 
     private void chargerProduits() {
         try {
-            List<Produit> produits = produitService.findAll();
-            afficherProduits(produits);
+            produitsCourants = new ArrayList<>(
+                    produitService.findAll()
+            );
+            pageActuelle = 1;
+            afficherPage();
         } catch (Exception e) {
             afficherErreur("Erreur lors du chargement des produits.", e);
         }
     }
 
     private void afficherProduits(List<Produit> produits) {
+        produitsCourants = new ArrayList<>(produits);
+        pageActuelle = 1;
+        afficherPage();
+    }
+
+    private void afficherPage() {
         tableModel.setRowCount(0);
 
-        for (Produit produit : produits) {
+        int total = produitsCourants.size();
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(total / (double) PAGE_SIZE)
+        );
 
-            String etat = obtenirEtat(produit);
+        if (pageActuelle > totalPages) {
+            pageActuelle = totalPages;
+        }
+
+        int debut = (pageActuelle - 1) * PAGE_SIZE;
+        int fin = Math.min(debut + PAGE_SIZE, total);
+
+        for (int i = debut; i < fin; i++) {
+            Produit produit = produitsCourants.get(i);
 
             tableModel.addRow(new Object[]{
                     produit.getIdProduit(),
@@ -426,8 +501,43 @@ public class ProduitPanel extends JPanel {
                     valeur(produit.getDescription()),
                     produit.getStockActuel(),
                     produit.getStockAlerte(),
-                    etat
+                    obtenirEtat(produit),
+                    ""
             });
+        }
+
+        String mot = total <= 1 ? "produit" : "produits";
+
+        if (lblPagination != null) {
+            lblPagination.setText(
+                    "Page " + pageActuelle
+                            + " / " + totalPages
+                            + "  (" + total + " " + mot + ")"
+            );
+            btnPrecedent.setEnabled(pageActuelle > 1);
+            btnSuivant.setEnabled(pageActuelle < totalPages);
+        }
+    }
+
+    private void pagePrecedente() {
+        if (pageActuelle > 1) {
+            pageActuelle--;
+            afficherPage();
+        }
+    }
+
+    private void pageSuivante() {
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(
+                        produitsCourants.size()
+                                / (double) PAGE_SIZE
+                )
+        );
+
+        if (pageActuelle < totalPages) {
+            pageActuelle++;
+            afficherPage();
         }
     }
 
@@ -600,6 +710,347 @@ public class ProduitPanel extends JPanel {
         );
 
         return bouton;
+    }
+
+    private JButton creerBoutonPagination(String texte) {
+        JButton bouton = new JButton(texte);
+
+        bouton.setFont(
+                new Font("SansSerif", Font.PLAIN, 13)
+        );
+        bouton.setForeground(TEXT);
+        bouton.setBackground(WHITE);
+        bouton.setFocusPainted(false);
+        bouton.setBorder(
+                BorderFactory.createCompoundBorder(
+                        new RoundedBorder(BORDER, 1, 8),
+                        BorderFactory.createEmptyBorder(7, 12, 7, 12)
+                )
+        );
+        bouton.setCursor(
+                new Cursor(Cursor.HAND_CURSOR)
+        );
+
+        return bouton;
+    }
+
+    // ================================================================
+    // ACTIONS
+    // ================================================================
+
+    private void modifierLigne(int ligne) {
+        try {
+            int id = Integer.parseInt(
+                    tableModel.getValueAt(ligne, 0).toString()
+            );
+
+            Produit produit = produitService.findById(id);
+
+            if (produit == null) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Produit introuvable.",
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE
+                );
+                return;
+            }
+
+            ProduitForm form = new ProduitForm(produit);
+            afficherModal("Modifier le produit", form);
+
+        } catch (Exception e) {
+            afficherErreur(
+                    "Erreur lors de la modification.",
+                    e
+            );
+        }
+    }
+
+    private void supprimerLigne(int ligne) {
+        try {
+            int id = Integer.parseInt(
+                    tableModel.getValueAt(ligne, 0).toString()
+            );
+
+            int confirmation = JOptionPane.showConfirmDialog(
+                    this,
+                    "Voulez-vous vraiment supprimer ce produit ?",
+                    "Confirmation de suppression",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            if (confirmation != JOptionPane.YES_OPTION) {
+                return;
+            }
+
+            produitService.supprimer(id);
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Produit supprimé avec succès.",
+                    "Suppression",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            chargerProduits();
+
+        } catch (Exception e) {
+            afficherErreur(
+                    "Impossible de supprimer le produit.",
+                    e
+            );
+        }
+    }
+
+    // ================================================================
+    // CELLULE ACTIONS
+    // ================================================================
+
+    private class ActionCellRenderer
+            extends JPanel
+            implements TableCellRenderer {
+
+        ActionCellRenderer() {
+            setOpaque(true);
+            setLayout(new FlowLayout(
+                    FlowLayout.CENTER,
+                    7,
+                    10
+            ));
+
+            JLabel modifier =
+                    new JLabel(new PencilIcon(BLUE, 18));
+
+            JLabel supprimer =
+                    new JLabel(new TrashIcon(RED, 18));
+
+            add(modifier);
+            add(supprimer);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                boolean hasFocus,
+                int row,
+                int column
+        ) {
+            setBackground(
+                    isSelected
+                            ? table.getSelectionBackground()
+                            : WHITE
+            );
+            return this;
+        }
+    }
+
+    private class ActionCellEditor
+            extends AbstractCellEditor
+            implements TableCellEditor {
+
+        private final JPanel panel;
+        private int currentRow;
+
+        ActionCellEditor() {
+            panel = new JPanel(new FlowLayout(
+                    FlowLayout.CENTER,
+                    7,
+                    10
+            ));
+            panel.setBackground(WHITE);
+
+            JButton btnModifier =
+                    new JButton(new PencilIcon(BLUE, 18));
+
+            JButton btnSupprimer =
+                    new JButton(new TrashIcon(RED, 18));
+
+            configurerBoutonAction(btnModifier);
+            configurerBoutonAction(btnSupprimer);
+
+            btnModifier.addActionListener(e -> {
+                stopCellEditing();
+                modifierLigne(currentRow);
+            });
+
+            btnSupprimer.addActionListener(e -> {
+                stopCellEditing();
+                supprimerLigne(currentRow);
+            });
+
+            panel.add(btnModifier);
+            panel.add(btnSupprimer);
+        }
+
+        private void configurerBoutonAction(JButton bouton) {
+            bouton.setFocusPainted(false);
+            bouton.setBorderPainted(false);
+            bouton.setContentAreaFilled(false);
+            bouton.setOpaque(false);
+            bouton.setCursor(
+                    new Cursor(Cursor.HAND_CURSOR)
+            );
+            bouton.setPreferredSize(
+                    new Dimension(28, 28)
+            );
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                int row,
+                int column
+        ) {
+            currentRow = row;
+            panel.setBackground(
+                    isSelected
+                            ? table.getSelectionBackground()
+                            : WHITE
+            );
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "";
+        }
+    }
+
+    // ================================================================
+    // ICÔNES
+    // ================================================================
+
+    private static class PencilIcon implements Icon {
+        private final Color color;
+        private final int size;
+
+        PencilIcon(Color color, int size) {
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component c,
+                Graphics g,
+                int x,
+                int y
+        ) {
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g2.setColor(color);
+            g2.setStroke(
+                    new BasicStroke(
+                            2.2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g2.drawLine(
+                    x + 5,
+                    y + 13,
+                    x + 13,
+                    y + 5
+            );
+            g2.drawLine(
+                    x + 4,
+                    y + 14,
+                    x + 7,
+                    y + 13
+            );
+            g2.drawLine(
+                    x + 13,
+                    y + 5,
+                    x + 11,
+                    y + 3
+            );
+
+            g2.dispose();
+        }
+    }
+
+    private static class TrashIcon implements Icon {
+        private final Color color;
+        private final int size;
+
+        TrashIcon(Color color, int size) {
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component c,
+                Graphics g,
+                int x,
+                int y
+        ) {
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g2.setColor(color);
+            g2.setStroke(
+                    new BasicStroke(
+                            2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g2.drawLine(
+                    x + 4, y + 5,
+                    x + 14, y + 5
+            );
+
+            g2.drawLine(
+                    x + 7, y + 3,
+                    x + 11, y + 3
+            );
+
+            g2.drawRoundRect(
+                    x + 5, y + 6,
+                    8, 10,
+                    2, 2
+            );
+
+            g2.dispose();
+        }
     }
 
     // ================================================================

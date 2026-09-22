@@ -226,6 +226,29 @@ public class CommandeService {
     }
 
     /**
+     * Récupérer une commande par son identifiant.
+     */
+    public Commande findById(
+            int idCommande)
+            throws SQLException {
+
+        if (idCommande <= 0) {
+            throw new IllegalArgumentException(
+                    "L'identifiant de la commande est invalide."
+            );
+        }
+
+        for (Commande commande : commandeDAO.findAll()) {
+
+            if (commande.getIdCommande() == idCommande) {
+                return commande;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Rechercher une commande.
      */
     public List<Commande> rechercher(

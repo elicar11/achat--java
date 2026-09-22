@@ -10,6 +10,7 @@ public class Facture {
     private double montantTotalHt;
     private double montantTva;
     private String etatPaiement;
+    private int idCommande;
 
     public Facture() {
     }
@@ -27,6 +28,21 @@ public class Facture {
         this.etatPaiement = etatPaiement;
     }
 
+    public Facture(String numFacture,
+                   LocalDate dateFacture,
+                   double montantTotalHt,
+                   double montantTva,
+                   String etatPaiement,
+                   int idCommande) {
+
+        this.numFacture = numFacture;
+        this.dateFacture = dateFacture;
+        this.montantTotalHt = montantTotalHt;
+        this.montantTva = montantTva;
+        this.etatPaiement = etatPaiement;
+        this.idCommande = idCommande;
+    }
+
     public Facture(int idFacture,
                    String numFacture,
                    LocalDate dateFacture,
@@ -40,6 +56,23 @@ public class Facture {
         this.montantTotalHt = montantTotalHt;
         this.montantTva = montantTva;
         this.etatPaiement = etatPaiement;
+    }
+
+    public Facture(int idFacture,
+                   String numFacture,
+                   LocalDate dateFacture,
+                   double montantTotalHt,
+                   double montantTva,
+                   String etatPaiement,
+                   int idCommande) {
+
+        this.idFacture = idFacture;
+        this.numFacture = numFacture;
+        this.dateFacture = dateFacture;
+        this.montantTotalHt = montantTotalHt;
+        this.montantTva = montantTva;
+        this.etatPaiement = etatPaiement;
+        this.idCommande = idCommande;
     }
 
     public int getIdFacture() {
@@ -88,6 +121,14 @@ public class Facture {
 
     public void setEtatPaiement(String etatPaiement) {
         this.etatPaiement = etatPaiement;
+    }
+
+    public int getIdCommande() {
+        return idCommande;
+    }
+
+    public void setIdCommande(int idCommande) {
+        this.idCommande = idCommande;
     }
 
     public double getMontantTtc() {

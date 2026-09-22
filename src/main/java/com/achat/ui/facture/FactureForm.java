@@ -1,8 +1,25 @@
 package com.achat.ui.facture;
 
+import com.achat.model.Commande;
 import com.achat.model.Facture;
+import com.achat.model.Fournisseur;
+import com.achat.model.LigneCommande;
+import com.achat.model.Personne;
+import com.achat.model.Produit;
+import com.achat.model.Societe;
+import com.achat.service.CommandeService;
 import com.achat.service.FactureService;
+import com.achat.service.FournisseurService;
+import com.achat.service.PersonneService;
+import com.achat.service.ProduitService;
+import com.achat.service.SocieteService;
 import net.miginfocom.swing.MigLayout;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
@@ -10,16 +27,33 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+import java.util.List;
 
 /**
  * Formulaire de création et de modification d'une facture.
+ *
+ * La facture référence désormais la commande qu'elle facture ;
+ * le fournisseur est déduit automatiquement de cette commande.
+ * Un export PDF de la facture est également disponible.
  */
 public class FactureForm extends JPanel {
 
     private final FactureService factureService;
+    private final CommandeService commandeService;
+    private final FournisseurService fournisseurService;
+    private final PersonneService personneService;
+    private final SocieteService societeService;
+    private final ProduitService produitService;
+
+    private JComboBox<CommandeItem> comboCommande;
+    private JTextField txtFournisseur;
 
     private JTextField txtNumeroFacture;
     private JTextField txtDate;
@@ -31,8 +65,11 @@ public class FactureForm extends JPanel {
 
     private JButton btnEnregistrer;
     private JButton btnAnnuler;
+    private JButton btnExporterPdf;
 
     private int idModification = -1;
+
+    private static final double TAUX_TVA = 0.20;
 
     private JDialog dialog;
 
@@ -61,7 +98,25 @@ public class FactureForm extends JPanel {
             new Color(34, 139, 94);
 
     private final DecimalFormat decimalFormat =
-            new DecimalFormat("#,##0.00");
+            creerFormatMontant();
+
+    /**
+     * Crée un format numérique avec un espace ASCII normal comme
+     * séparateur de milliers (au lieu de l'espace fine insécable
+     * "\u202F" utilisée par défaut par le format français, qui
+     * n'est pas supportée par la police du PDF et s'affichait
+     * comme un point d'interrogation "?" à l'export).
+     */
+    private static DecimalFormat creerFormatMontant() {
+
+        DecimalFormatSymbols symboles =
+                new DecimalFormatSymbols(Locale.FRANCE);
+
+        symboles.setGroupingSeparator(' ');
+        symboles.setDecimalSeparator(',');
+
+        return new DecimalFormat("#,##0.00", symboles);
+    }
 
     // ================================================================
     // CONSTRUCTEUR - NOUVELLE FACTURE
@@ -72,7 +127,24 @@ public class FactureForm extends JPanel {
         factureService =
                 new FactureService();
 
+        commandeService =
+                new CommandeService();
+
+        fournisseurService =
+                new FournisseurService();
+
+        personneService =
+                new PersonneService();
+
+        societeService =
+                new SocieteService();
+
+        produitService =
+                new ProduitService();
+
         construireInterface();
+
+        chargerCommandes();
 
         remplirValeursParDefaut();
 
@@ -105,9 +177,9 @@ public class FactureForm extends JPanel {
 
         setLayout(
                 new MigLayout(
-                        "fill, insets 25",
-                        "[grow]",
-                        "[]15[]15[]15[]15[]15[]15[]"
+                        "fill, insets 20",
+                        "[150][grow]",
+                        "[]10[]10[]10[]10[]10[]10[]10[]10[]"
                 )
         );
 
@@ -124,7 +196,7 @@ public class FactureForm extends JPanel {
                 new Font(
                         "SansSerif",
                         Font.BOLD,
-                        24
+                        20
                 )
         );
 
@@ -132,7 +204,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblTitre,
-                "wrap"
+                "span 2, wrap"
         );
 
         JLabel lblSousTitre =
@@ -154,7 +226,75 @@ public class FactureForm extends JPanel {
 
         add(
                 lblSousTitre,
-                "wrap"
+                "span 2, wrap"
+        );
+
+        // ============================================================
+        // COMMANDE À FACTURER
+        // ============================================================
+
+        JLabel lblCommande =
+                creerLabel(
+                        "Commande à facturer"
+                );
+
+        comboCommande =
+                new JComboBox<>();
+
+        comboCommande.setFont(
+                new Font(
+                        "SansSerif",
+                        Font.PLAIN,
+                        13
+                )
+        );
+
+        comboCommande.setBackground(WHITE);
+
+        comboCommande.setPreferredSize(
+                new Dimension(0, 34)
+        );
+
+        comboCommande.addActionListener(
+                e -> mettreAJourFournisseur()
+        );
+
+        add(
+                lblCommande,
+                "top"
+        );
+
+        add(
+                comboCommande,
+                "growx, wrap"
+        );
+
+        // ============================================================
+        // FOURNISSEUR (déduit automatiquement de la commande)
+        // ============================================================
+
+        JLabel lblFournisseur =
+                creerLabel(
+                        "Fournisseur"
+                );
+
+        txtFournisseur =
+                creerTextField();
+
+        txtFournisseur.setEditable(false);
+
+        txtFournisseur.setBackground(
+                new Color(240, 242, 245)
+        );
+
+        add(
+                lblFournisseur,
+                "top"
+        );
+
+        add(
+                txtFournisseur,
+                "growx, wrap"
         );
 
         // ============================================================
@@ -171,7 +311,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblNumero,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -193,7 +333,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblDate,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -219,7 +359,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblMontantHt,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -233,7 +373,7 @@ public class FactureForm extends JPanel {
 
         JLabel lblTva =
                 creerLabel(
-                        "TVA"
+                        "TVA (20%)"
                 );
 
         txtTva =
@@ -243,9 +383,15 @@ public class FactureForm extends JPanel {
                 SwingConstants.RIGHT
         );
 
+        txtTva.setEditable(false);
+
+        txtTva.setBackground(
+                new Color(240, 242, 245)
+        );
+
         add(
                 lblTva,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -285,7 +431,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblTotalTtc,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -325,7 +471,7 @@ public class FactureForm extends JPanel {
 
         add(
                 lblEtat,
-                "split 2, growx"
+                "top"
         );
 
         add(
@@ -339,7 +485,7 @@ public class FactureForm extends JPanel {
 
         add(
                 new JLabel(),
-                "growy, wrap"
+                "span 2, growy, wrap"
         );
 
         // ============================================================
@@ -350,11 +496,20 @@ public class FactureForm extends JPanel {
                 new JPanel(
                         new MigLayout(
                                 "insets 0",
-                                "[grow][]10[]"
+                                "[][grow][]10[]"
                         )
                 );
 
         boutonsPanel.setOpaque(false);
+
+        btnExporterPdf =
+                creerBoutonSecondaire(
+                        "Exporter en PDF"
+                );
+
+        btnExporterPdf.addActionListener(
+                e -> exporterPdf()
+        );
 
         btnAnnuler =
                 creerBoutonSecondaire(
@@ -377,6 +532,10 @@ public class FactureForm extends JPanel {
         );
 
         boutonsPanel.add(
+                btnExporterPdf
+        );
+
+        boutonsPanel.add(
                 new JLabel(),
                 "growx"
         );
@@ -391,7 +550,7 @@ public class FactureForm extends JPanel {
 
         add(
                 boutonsPanel,
-                "growx"
+                "span 2, growx"
         );
     }
 
@@ -407,15 +566,11 @@ public class FactureForm extends JPanel {
 
         txtMontantHt.setText("0");
 
-        txtTva.setText("0");
-
-        txtTotalTtc.setText(
-                "0,00 Ar"
-        );
-
         comboEtatPaiement.setSelectedItem(
                 "Non payé"
         );
+
+        calculerTotalTtc();
     }
 
     // ================================================================
@@ -441,11 +596,23 @@ public class FactureForm extends JPanel {
                 )
         );
 
-        txtTva.setText(
-                String.valueOf(
-                        facture.getMontantTva()
-                )
-        );
+        // Sélection de la commande facturée
+        for (int i = 0;
+                i < comboCommande.getItemCount();
+                i++) {
+
+            CommandeItem item =
+                    comboCommande.getItemAt(i);
+
+            if (item.getCommande().getIdCommande()
+                    == facture.getIdCommande()) {
+
+                comboCommande.setSelectedIndex(i);
+                break;
+            }
+        }
+
+        mettreAJourFournisseur();
 
         // CORRECTION : Conversion du code système vers le libellé UI
         String etatSys = facture.getEtatPaiement();
@@ -458,6 +625,112 @@ public class FactureForm extends JPanel {
         }
 
         calculerTotalTtc();
+    }
+
+    // ================================================================
+    // COMMANDES / FOURNISSEUR
+    // ================================================================
+
+    /**
+     * Charge la liste des commandes dans le ComboBox.
+     */
+    private void chargerCommandes() {
+
+        try {
+
+            comboCommande.removeAllItems();
+
+            List<Commande> commandes =
+                    commandeService.findAll();
+
+            for (Commande commande : commandes) {
+
+                comboCommande.addItem(
+                        new CommandeItem(commande)
+                );
+            }
+
+        } catch (Exception e) {
+
+            afficherErreur(
+                    "Impossible de charger les commandes.",
+                    e
+            );
+        }
+    }
+
+    /**
+     * Met à jour le champ Fournisseur en fonction
+     * de la commande sélectionnée.
+     */
+    private void mettreAJourFournisseur() {
+
+        CommandeItem item =
+                (CommandeItem) comboCommande.getSelectedItem();
+
+        if (item == null) {
+            txtFournisseur.setText("");
+            return;
+        }
+
+        try {
+
+            String nom =
+                    obtenirNomFournisseur(
+                            item.getCommande().getIdFournisseur()
+                    );
+
+            txtFournisseur.setText(nom);
+
+        } catch (Exception e) {
+
+            txtFournisseur.setText("");
+        }
+    }
+
+    /**
+     * Résout le nom d'affichage d'un fournisseur
+     * (personne ou société) à partir de son identifiant.
+     */
+    private String obtenirNomFournisseur(int idFournisseur) {
+
+        try {
+
+            Fournisseur fournisseur =
+                    fournisseurService.findById(idFournisseur);
+
+            if (fournisseur == null) {
+                return "Fournisseur introuvable";
+            }
+
+            if ("PERSONNE".equals(fournisseur.getTypeFournisseur())) {
+
+                Personne personne =
+                        personneService.findByFournisseur(idFournisseur);
+
+                if (personne != null) {
+                    return (personne.getNom() == null ? "" : personne.getNom())
+                            + " "
+                            + (personne.getPrenom() == null ? "" : personne.getPrenom());
+                }
+
+            } else {
+
+                Societe societe =
+                        societeService.findByFournisseur(idFournisseur);
+
+                if (societe != null) {
+                    return societe.getRaisonSociale() == null
+                            ? ""
+                            : societe.getRaisonSociale();
+                }
+            }
+
+        } catch (Exception e) {
+            return "Erreur lors de la récupération du fournisseur";
+        }
+
+        return "";
     }
 
     // ================================================================
@@ -494,10 +767,6 @@ public class FactureForm extends JPanel {
         txtMontantHt
                 .getDocument()
                 .addDocumentListener(listener);
-
-        txtTva
-                .getDocument()
-                .addDocumentListener(listener);
     }
 
     private void calculerTotalTtc() {
@@ -510,12 +779,14 @@ public class FactureForm extends JPanel {
                     );
 
             double tva =
-                    lireMontant(
-                            txtTva.getText()
-                    );
+                    montantHt * TAUX_TVA;
 
             double total =
                     montantHt + tva;
+
+            txtTva.setText(
+                    decimalFormat.format(tva)
+            );
 
             txtTotalTtc.setText(
                     decimalFormat.format(total)
@@ -523,6 +794,8 @@ public class FactureForm extends JPanel {
             );
 
         } catch (Exception e) {
+
+            txtTva.setText("0,00");
 
             txtTotalTtc.setText(
                     "0,00 Ar"
@@ -537,6 +810,22 @@ public class FactureForm extends JPanel {
     private void enregistrer() {
 
         try {
+
+            // --------------------------------------------------------
+            // COMMANDE À FACTURER
+            // --------------------------------------------------------
+
+            CommandeItem itemCommande =
+                    (CommandeItem) comboCommande.getSelectedItem();
+
+            if (itemCommande == null) {
+
+                afficherAvertissement(
+                        "Veuillez sélectionner la commande à facturer."
+                );
+
+                return;
+            }
 
             // --------------------------------------------------------
             // NUMÉRO
@@ -635,40 +924,10 @@ public class FactureForm extends JPanel {
             }
 
             // --------------------------------------------------------
-            // TVA
+            // TVA (calculée automatiquement, 20% du montant HT)
             // --------------------------------------------------------
 
-            double montantTva;
-
-            try {
-
-                montantTva =
-                        lireMontant(
-                                txtTva
-                                        .getText()
-                        );
-
-            } catch (NumberFormatException e) {
-
-                afficherAvertissement(
-                        "Le montant de TVA est invalide."
-                );
-
-                txtTva.requestFocus();
-
-                return;
-            }
-
-            if (montantTva < 0) {
-
-                afficherAvertissement(
-                        "La TVA ne peut pas être négative."
-                );
-
-                txtTva.requestFocus();
-
-                return;
-            }
+            double montantTva = montantHt * TAUX_TVA;
 
             // --------------------------------------------------------
             // ETAT (CORRECTION DE LA CONVERSION VERS LE FORMAT ATTENDU)
@@ -721,6 +980,10 @@ public class FactureForm extends JPanel {
 
             facture.setEtatPaiement(
                     etatPaiement
+            );
+
+            facture.setIdCommande(
+                    itemCommande.getCommande().getIdCommande()
             );
 
             // --------------------------------------------------------
@@ -801,6 +1064,365 @@ public class FactureForm extends JPanel {
         return Double.parseDouble(
                 valeur
         );
+    }
+
+    // ================================================================
+    // EXPORT PDF
+    // ================================================================
+
+    private void exporterPdf() {
+
+        CommandeItem item =
+                (CommandeItem) comboCommande.getSelectedItem();
+
+        if (item == null) {
+
+            afficherAvertissement(
+                    "Veuillez sélectionner la commande à facturer "
+                            + "avant d'exporter la facture."
+            );
+
+            return;
+        }
+
+        String numero =
+                txtNumeroFacture.getText().trim();
+
+        if (numero.isEmpty()) {
+
+            afficherAvertissement(
+                    "Veuillez saisir le numéro de facture "
+                            + "avant d'exporter."
+            );
+
+            txtNumeroFacture.requestFocus();
+
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Exporter la facture en PDF");
+        chooser.setSelectedFile(
+                new File("Facture-" + numero.replace("/", "-") + ".pdf")
+        );
+
+        int choix = chooser.showSaveDialog(this);
+
+        if (choix != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File fichier = chooser.getSelectedFile();
+
+        if (!fichier.getName().toLowerCase().endsWith(".pdf")) {
+            fichier = new File(fichier.getParentFile(), fichier.getName() + ".pdf");
+        }
+
+        try {
+
+            genererPdf(fichier, item.getCommande());
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Facture exportée avec succès :\n"
+                            + fichier.getAbsolutePath(),
+                    "Export PDF",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+        } catch (Exception e) {
+
+            afficherErreur(
+                    "Impossible de générer le PDF de la facture.",
+                    e
+            );
+        }
+    }
+
+    /**
+     * Génère le document PDF de la facture à l'aide d'Apache PDFBox.
+     */
+    private void genererPdf(
+            File fichier,
+            Commande commande
+    ) throws IOException {
+
+        String numero = txtNumeroFacture.getText().trim();
+        String dateTexte = txtDate.getText().trim();
+        String nomFournisseur = txtFournisseur.getText().trim();
+        String etat = (String) comboEtatPaiement.getSelectedItem();
+
+        double montantHt = lireMontant(txtMontantHt.getText());
+        double montantTva = lireMontant(txtTva.getText());
+        double totalTtc = montantHt + montantTva;
+
+        try (PDDocument document = new PDDocument()) {
+
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+
+            float margeGauche = 55;
+            float largeurPage = page.getMediaBox().getWidth();
+            float y = page.getMediaBox().getHeight() - 60;
+
+            try (PDPageContentStream cs =
+                    new PDPageContentStream(document, page)) {
+
+                // ---------------------------------------------------
+                // EN-TÊTE
+                // ---------------------------------------------------
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 22);
+                ecrireTexte(cs, margeGauche, y, "FACTURE");
+
+                y -= 30;
+
+                cs.setFont(PDType1Font.HELVETICA, 11);
+                ecrireTexte(cs, margeGauche, y, "Numero : " + numero);
+
+                y -= 16;
+
+                ecrireTexte(cs, margeGauche, y, "Date : " + dateTexte);
+
+                y -= 16;
+
+                ecrireTexte(cs, margeGauche, y,
+                        "Etat du paiement : " + (etat != null ? etat : ""));
+
+                y -= 34;
+
+                // ---------------------------------------------------
+                // FOURNISSEUR / COMMANDE
+                // ---------------------------------------------------
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 13);
+                ecrireTexte(cs, margeGauche, y, "Fournisseur");
+
+                y -= 18;
+
+                cs.setFont(PDType1Font.HELVETICA, 11);
+                ecrireTexte(cs, margeGauche, y,
+                        nomFournisseur.isEmpty() ? "-" : nomFournisseur);
+
+                y -= 30;
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 13);
+                ecrireTexte(cs, margeGauche, y, "Commande facturee");
+
+                y -= 18;
+
+                cs.setFont(PDType1Font.HELVETICA, 11);
+                ecrireTexte(cs, margeGauche, y,
+                        "CMD-" + commande.getIdCommande()
+                                + "   -   Date : " + commande.getDateCommande()
+                                + "   -   Etat : " + commande.getEtatCommande());
+
+                y -= 30;
+
+                // ---------------------------------------------------
+                // PRODUITS DE LA COMMANDE
+                // ---------------------------------------------------
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 13);
+                ecrireTexte(cs, margeGauche, y, "Produits commandes");
+
+                y -= 20;
+
+                float colProduit = margeGauche;
+                float colQuantite = margeGauche + 260;
+                float colPrix = margeGauche + 350;
+                float colTotal = margeGauche + 440;
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 10);
+                ecrireTexte(cs, colProduit, y, "Produit");
+                ecrireTexte(cs, colQuantite, y, "Qte");
+                ecrireTexte(cs, colPrix, y, "P.U.");
+                ecrireTexte(cs, colTotal, y, "Total");
+
+                y -= 6;
+
+                cs.moveTo(margeGauche, y);
+                cs.lineTo(largeurPage - margeGauche, y);
+                cs.stroke();
+
+                y -= 16;
+
+                cs.setFont(PDType1Font.HELVETICA, 10);
+
+                List<LigneCommande> lignes;
+
+                try {
+                    lignes = commandeService.findLignes(
+                            commande.getIdCommande()
+                    );
+                } catch (Exception e) {
+                    lignes = java.util.Collections.emptyList();
+                }
+
+                for (LigneCommande ligne : lignes) {
+
+                    if (y < 90) {
+                        break;
+                    }
+
+                    String designation;
+                    double prixUnitaire;
+                    double totalLigne;
+
+                    try {
+
+                        Produit produit =
+                                produitService.findById(
+                                        ligne.getIdProduit()
+                                );
+
+                        designation =
+                                produit != null
+                                        ? produit.getDesignation()
+                                        : "Produit #" + ligne.getIdProduit();
+
+                        prixUnitaire = ligne.getPrixUnitaireAchat();
+
+                        totalLigne =
+                                ligne.getQuantiteCommandee() * prixUnitaire;
+
+                    } catch (Exception e) {
+
+                        // Ligne illisible : on l'ignore et on passe
+                        // à la suivante sans jamais toucher au flux PDF.
+                        continue;
+                    }
+
+                    ecrireTexte(cs, colProduit, y, tronquer(designation, 32));
+
+                    ecrireTexte(cs, colQuantite, y,
+                            decimalFormat.format(ligne.getQuantiteCommandee()));
+
+                    ecrireTexte(cs, colPrix, y,
+                            decimalFormat.format(prixUnitaire));
+
+                    ecrireTexte(cs, colTotal, y,
+                            decimalFormat.format(totalLigne));
+
+                    y -= 18;
+                }
+
+                y -= 20;
+
+                cs.moveTo(margeGauche, y);
+                cs.lineTo(largeurPage - margeGauche, y);
+                cs.stroke();
+
+                y -= 26;
+
+                // ---------------------------------------------------
+                // TOTAUX
+                // ---------------------------------------------------
+
+                float colLabel = largeurPage - margeGauche - 200;
+                float colValeur = largeurPage - margeGauche - 90;
+
+                cs.setFont(PDType1Font.HELVETICA, 11);
+
+                ecrireTexte(cs, colLabel, y, "Montant HT :");
+                ecrireTexte(cs, colValeur, y,
+                        decimalFormat.format(montantHt) + " Ar");
+
+                y -= 18;
+
+                ecrireTexte(cs, colLabel, y, "TVA :");
+                ecrireTexte(cs, colValeur, y,
+                        decimalFormat.format(montantTva) + " Ar");
+
+                y -= 22;
+
+                cs.setFont(PDType1Font.HELVETICA_BOLD, 13);
+
+                ecrireTexte(cs, colLabel, y, "TOTAL TTC :");
+                ecrireTexte(cs, colValeur, y,
+                        decimalFormat.format(totalTtc) + " Ar");
+            }
+
+            document.save(fichier);
+        }
+    }
+
+    /**
+     * Écrit une ligne de texte dans le flux PDF.
+     *
+     * Le bloc de texte (beginText/endText) est TOUJOURS refermé,
+     * même en cas d'erreur (caractère non supporté par la police,
+     * par exemple) — cela évite de laisser le flux PDF dans un état
+     * incohérent ("moveTo is not allowed within a text block").
+     */
+    private void ecrireTexte(
+            PDPageContentStream cs,
+            float x,
+            float y,
+            String texte
+    ) throws IOException {
+
+        cs.beginText();
+
+        try {
+
+            cs.newLineAtOffset(x, y);
+            cs.showText(nettoyerTexte(texte));
+
+        } catch (Exception e) {
+
+            // Si le texte contient un caractère non supporté par
+            // la police, on retente avec une version nettoyée.
+            try {
+                cs.showText("?");
+            } catch (Exception ignored) {
+                // Rien de plus à tenter.
+            }
+
+        } finally {
+
+            cs.endText();
+        }
+    }
+
+    /**
+     * Remplace les caractères non supportés par WinAnsiEncoding
+     * (accents compris, normalement pris en charge, mais on
+     * neutralise ici les caractères "exotiques" éventuels comme
+     * les puces • ou les guillemets typographiques) par leur
+     * équivalent ASCII le plus proche.
+     */
+    private String nettoyerTexte(String texte) {
+
+        if (texte == null) {
+            return "";
+        }
+
+        StringBuilder resultat = new StringBuilder(texte.length());
+
+        for (int i = 0; i < texte.length(); i++) {
+
+            char c = texte.charAt(i);
+
+            if (c <= 0xFF) {
+                resultat.append(c);
+            } else {
+                resultat.append('?');
+            }
+        }
+
+        return resultat.toString();
+    }
+
+    private String tronquer(String texte, int max) {
+
+        if (texte == null) {
+            return "";
+        }
+
+        return texte.length() <= max
+                ? texte
+                : texte.substring(0, max - 1) + "…";
     }
 
     // ================================================================
@@ -886,7 +1508,7 @@ public class FactureForm extends JPanel {
         field.setPreferredSize(
                 new Dimension(
                         0,
-                        42
+                        34
                 )
         );
 
@@ -898,9 +1520,9 @@ public class FactureForm extends JPanel {
                                 8
                         ),
                         BorderFactory.createEmptyBorder(
-                                8,
+                                6,
                                 12,
-                                8,
+                                6,
                                 12
                         )
                 )
@@ -936,9 +1558,9 @@ public class FactureForm extends JPanel {
 
         bouton.setBorder(
                 BorderFactory.createEmptyBorder(
-                        11,
+                        9,
                         20,
-                        11,
+                        9,
                         20
                 )
         );
@@ -990,9 +1612,9 @@ public class FactureForm extends JPanel {
                                 8
                         ),
                         BorderFactory.createEmptyBorder(
-                                10,
+                                8,
                                 18,
-                                10,
+                                8,
                                 18
                         )
                 )
@@ -1040,6 +1662,30 @@ public class FactureForm extends JPanel {
                 "Erreur",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    // ================================================================
+    // ITEM COMBO COMMANDE
+    // ================================================================
+
+    private static class CommandeItem {
+
+        private final Commande commande;
+
+        public CommandeItem(Commande commande) {
+            this.commande = commande;
+        }
+
+        public Commande getCommande() {
+            return commande;
+        }
+
+        @Override
+        public String toString() {
+            return "CMD-" + commande.getIdCommande()
+                    + "  •  " + commande.getDateCommande()
+                    + "  •  " + commande.getEtatCommande();
+        }
     }
 
     // ================================================================

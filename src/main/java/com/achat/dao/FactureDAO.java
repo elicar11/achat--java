@@ -21,8 +21,8 @@ public class FactureDAO {
         String sql = """
             INSERT INTO FACTURE
             (num_facture, date_facture, montant_total_ht,
-             montant_tva, etat_paiement)
-            VALUES (?, ?, ?, ?, ?)
+             montant_tva, etat_paiement, id_commande)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
 
         try (Connection connection = DatabaseConnection.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -50,6 +50,11 @@ public class FactureDAO {
             statement.setString(
                     5,
                     facture.getEtatPaiement()
+            );
+
+            statement.setInt(
+                    6,
+                    facture.getIdCommande()
             );
 
             statement.executeUpdate();
@@ -99,6 +104,10 @@ public class FactureDAO {
 
                 facture.setEtatPaiement(
                         result.getString("etat_paiement")
+                );
+
+                facture.setIdCommande(
+                        result.getInt("id_commande")
                 );
 
                 factures.add(facture);
@@ -167,6 +176,10 @@ public class FactureDAO {
                             result.getString("etat_paiement")
                     );
 
+                    facture.setIdCommande(
+                            result.getInt("id_commande")
+                    );
+
                     factures.add(facture);
                 }
             }
@@ -187,7 +200,8 @@ public class FactureDAO {
                 date_facture = ?,
                 montant_total_ht = ?,
                 montant_tva = ?,
-                etat_paiement = ?
+                etat_paiement = ?,
+                id_commande = ?
             WHERE id_facture = ?
             """;
 
@@ -220,6 +234,11 @@ public class FactureDAO {
 
             statement.setInt(
                     6,
+                    facture.getIdCommande()
+            );
+
+            statement.setInt(
+                    7,
                     facture.getIdFacture()
             );
 
@@ -306,6 +325,12 @@ public class FactureDAO {
                             )
                     );
 
+                    facture.setIdCommande(
+                            result.getInt(
+                                    "id_commande"
+                            )
+                    );
+
                     return facture;
                 }
             }
@@ -361,6 +386,10 @@ public class FactureDAO {
 
                     facture.setEtatPaiement(
                             result.getString("etat_paiement")
+                    );
+
+                    facture.setIdCommande(
+                            result.getInt("id_commande")
                     );
 
                     return facture;

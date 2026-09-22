@@ -11,10 +11,14 @@ import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,12 +43,22 @@ public class FournisseurPanel extends JPanel {
     private JButton btnAjouter;
     private JButton btnRechercher;
 
+    // Pagination
+    private List<Fournisseur> fournisseursComplets = new ArrayList<>();
+    private int pageActuelle = 0;
+    private static final int TAILLE_PAGE = 10;
+    private JLabel lblPageInfo;
+    private JButton btnPagePrecedente;
+    private JButton btnPageSuivante;
+
     private static final Color PRIMARY = new Color(25, 25, 25);
     private static final Color WHITE = Color.WHITE;
     private static final Color LIGHT_BG = new Color(248, 249, 251);
     private static final Color BORDER = new Color(225, 228, 232);
     private static final Color TEXT = new Color(35, 38, 42);
     private static final Color GRAY = new Color(110, 115, 120);
+    private static final Color BLEU = new Color(60, 110, 210);
+    private static final Color ROUGE = new Color(200, 60, 60);
 
     public FournisseurPanel() {
 
@@ -239,6 +253,11 @@ public class FournisseurPanel extends JPanel {
                 BorderLayout.CENTER
         );
 
+        tableCard.add(
+                creerBarrePagination(),
+                BorderLayout.SOUTH
+        );
+
         mainPanel.add(
                 tableCard,
                 BorderLayout.CENTER
@@ -248,6 +267,59 @@ public class FournisseurPanel extends JPanel {
                 mainPanel,
                 BorderLayout.CENTER
         );
+    }
+
+    /**
+     * Crée la barre de pagination affichée sous le tableau.
+     */
+    private JPanel creerBarrePagination() {
+
+        JPanel pagination = new JPanel(
+                new BorderLayout()
+        );
+
+        pagination.setOpaque(false);
+
+        pagination.setBorder(
+                BorderFactory.createEmptyBorder(12, 4, 0, 4)
+        );
+
+        lblPageInfo = new JLabel("Page 1 / 1");
+        lblPageInfo.setFont(
+                new Font("SansSerif", Font.PLAIN, 13)
+        );
+        lblPageInfo.setForeground(GRAY);
+
+        pagination.add(lblPageInfo, BorderLayout.WEST);
+
+        JPanel boutonsPagination = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 8, 0)
+        );
+
+        boutonsPagination.setOpaque(false);
+
+        btnPagePrecedente = creerBoutonSecondaire("‹ Précédent");
+        btnPagePrecedente.addActionListener(e -> {
+            if (pageActuelle > 0) {
+                pageActuelle--;
+                afficherPage();
+            }
+        });
+
+        btnPageSuivante = creerBoutonSecondaire("Suivant ›");
+        btnPageSuivante.addActionListener(e -> {
+            if ((pageActuelle + 1) * TAILLE_PAGE < fournisseursComplets.size()) {
+                pageActuelle++;
+                afficherPage();
+            }
+        });
+
+        boutonsPagination.add(btnPagePrecedente);
+        boutonsPagination.add(btnPageSuivante);
+
+        pagination.add(boutonsPagination, BorderLayout.EAST);
+
+        return pagination;
     }
 
     /**
@@ -275,7 +347,7 @@ public class FournisseurPanel extends JPanel {
                     int row,
                     int column
             ) {
-                return false;
+                return column == 6;
             }
         };
 
@@ -373,14 +445,28 @@ public class FournisseurPanel extends JPanel {
         table.getColumnModel().getColumn(3).setPreferredWidth(180);
         table.getColumnModel().getColumn(4).setPreferredWidth(190);
         table.getColumnModel().getColumn(5).setPreferredWidth(130);
-        table.getColumnModel().getColumn(6).setPreferredWidth(160);
+        table.getColumnModel().getColumn(6).setPreferredWidth(110);
+
+        table.getColumnModel().getColumn(6)
+                .setCellRenderer(new ActionCellRenderer());
+
+        table.getColumnModel().getColumn(6)
+                .setCellEditor(new ActionCellEditor());
 
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2
                         && SwingUtilities.isLeftMouseButton(e)) {
-                    modifierSelection();
+
+                    int colonne = table.columnAtPoint(e.getPoint());
+
+                    // Le double-clic ouvre la modification, sauf
+                    // sur la colonne Actions qui gère ses propres
+                    // boutons.
+                    if (colonne != 6) {
+                        modifierSelection();
+                    }
                 }
             }
         });
@@ -392,17 +478,30 @@ public class FournisseurPanel extends JPanel {
 
     private void chargerFournisseurs() {
         try {
-            List<Fournisseur> fournisseurs = fournisseurService.findAll();
-            afficherFournisseurs(fournisseurs);
+            fournisseursComplets = fournisseurService.findAll();
+            pageActuelle = 0;
+            afficherPage();
         } catch (Exception e) {
             afficherErreur("Erreur lors du chargement des fournisseurs.", e);
         }
     }
 
-    private void afficherFournisseurs(List<Fournisseur> fournisseurs) {
+    /**
+     * Affiche la page courante à partir de la liste complète
+     * actuellement chargée (résultat de findAll() ou rechercher()).
+     */
+    private void afficherPage() {
+
         tableModel.setRowCount(0);
 
-        for (Fournisseur fournisseur : fournisseurs) {
+        int total = fournisseursComplets.size();
+
+        int debut = pageActuelle * TAILLE_PAGE;
+        int fin = Math.min(debut + TAILLE_PAGE, total);
+
+        for (int i = debut; i < fin; i++) {
+
+            Fournisseur fournisseur = fournisseursComplets.get(i);
             String nomSociete = obtenirNomOuSociete(fournisseur);
 
             tableModel.addRow(new Object[]{
@@ -412,9 +511,23 @@ public class FournisseurPanel extends JPanel {
                     valeur(fournisseur.getAdresse()),
                     valeur(fournisseur.getEmail()),
                     valeur(fournisseur.getTelephone()),
-                    "Double-clic pour modifier"
+                    ""
             });
         }
+
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(total / (double) TAILLE_PAGE)
+        );
+
+        lblPageInfo.setText(
+                "Page " + (pageActuelle + 1) + " / " + totalPages
+                        + "  (" + total + " fournisseur"
+                        + (total > 1 ? "s" : "") + ")"
+        );
+
+        btnPagePrecedente.setEnabled(pageActuelle > 0);
+        btnPageSuivante.setEnabled(fin < total);
     }
 
     private String obtenirNomOuSociete(Fournisseur fournisseur) {
@@ -447,12 +560,13 @@ public class FournisseurPanel extends JPanel {
         try {
             String motCle = txtRecherche.getText().trim();
 
-            List<Fournisseur> fournisseurs =
+            fournisseursComplets =
                     motCle.isEmpty()
                             ? fournisseurService.findAll()
                             : fournisseurService.rechercher(motCle);
 
-            afficherFournisseurs(fournisseurs);
+            pageActuelle = 0;
+            afficherPage();
 
         } catch (Exception e) {
             afficherErreur("Erreur lors de la recherche.", e);
@@ -503,6 +617,33 @@ public class FournisseurPanel extends JPanel {
 
         } catch (Exception e) {
             afficherErreur("Erreur lors de la modification.", e);
+        }
+    }
+
+    private void supprimerSelection(int id) {
+
+        int confirmation = JOptionPane.showConfirmDialog(
+                this,
+                "Voulez-vous vraiment supprimer ce fournisseur ?\n"
+                        + "Cette action est irréversible.",
+                "Confirmer la suppression",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirmation != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            fournisseurService.supprimer(id);
+            chargerFournisseurs();
+
+        } catch (Exception e) {
+            afficherErreur(
+                    "Erreur lors de la suppression du fournisseur.",
+                    e
+            );
         }
     }
 
@@ -617,6 +758,263 @@ public class FournisseurPanel extends JPanel {
 
     private String valeur(String valeur) {
         return valeur == null ? "" : valeur;
+    }
+
+    // ================================================================
+    // CELLULE ACTIONS — même icônes que ProduitPanel
+    // ================================================================
+
+    private class ActionCellRenderer
+            extends JPanel
+            implements TableCellRenderer {
+
+        ActionCellRenderer() {
+            setOpaque(true);
+            setLayout(new FlowLayout(
+                    FlowLayout.CENTER,
+                    7,
+                    10
+            ));
+
+            add(new JLabel(new PencilIcon(BLEU, 18)));
+            add(new JLabel(new TrashIcon(ROUGE, 18)));
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                boolean hasFocus,
+                int row,
+                int column
+        ) {
+            setBackground(
+                    isSelected
+                            ? table.getSelectionBackground()
+                            : WHITE
+            );
+            return this;
+        }
+    }
+
+    private class ActionCellEditor
+            extends AbstractCellEditor
+            implements TableCellEditor {
+
+        private final JPanel panel;
+        private int ligneCourante;
+
+        ActionCellEditor() {
+            panel = new JPanel(new FlowLayout(
+                    FlowLayout.CENTER,
+                    7,
+                    10
+            ));
+            panel.setBackground(WHITE);
+
+            JButton btnModifier =
+                    new JButton(new PencilIcon(BLEU, 18));
+
+            JButton btnSupprimer =
+                    new JButton(new TrashIcon(ROUGE, 18));
+
+            configurerBoutonAction(btnModifier);
+            configurerBoutonAction(btnSupprimer);
+
+            btnModifier.addActionListener(e -> {
+                fireEditingStopped();
+                table.setRowSelectionInterval(
+                        ligneCourante,
+                        ligneCourante
+                );
+                modifierSelection();
+            });
+
+            btnSupprimer.addActionListener(e -> {
+                fireEditingStopped();
+
+                int id = Integer.parseInt(
+                        tableModel.getValueAt(
+                                ligneCourante,
+                                0
+                        ).toString()
+                );
+
+                supprimerSelection(id);
+            });
+
+            panel.add(btnModifier);
+            panel.add(btnSupprimer);
+        }
+
+        private void configurerBoutonAction(JButton bouton) {
+            bouton.setFocusPainted(false);
+            bouton.setBorderPainted(false);
+            bouton.setContentAreaFilled(false);
+            bouton.setOpaque(false);
+            bouton.setCursor(
+                    new Cursor(Cursor.HAND_CURSOR)
+            );
+            bouton.setPreferredSize(
+                    new Dimension(28, 28)
+            );
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                int row,
+                int column
+        ) {
+            ligneCourante = row;
+
+            panel.setBackground(
+                    isSelected
+                            ? table.getSelectionBackground()
+                            : WHITE
+            );
+
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "";
+        }
+    }
+
+    // ================================================================
+    // ICÔNES VECTORIELLES — identiques à ProduitPanel
+    // ================================================================
+
+    private static class PencilIcon implements Icon {
+
+        private final Color color;
+        private final int size;
+
+        PencilIcon(Color color, int size) {
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component c,
+                Graphics g,
+                int x,
+                int y
+        ) {
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g2.setColor(color);
+
+            g2.setStroke(
+                    new BasicStroke(
+                            2.2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g2.drawLine(
+                    x + 5, y + 13,
+                    x + 13, y + 5
+            );
+
+            g2.drawLine(
+                    x + 4, y + 14,
+                    x + 7, y + 13
+            );
+
+            g2.drawLine(
+                    x + 13, y + 5,
+                    x + 11, y + 3
+            );
+
+            g2.dispose();
+        }
+    }
+
+    private static class TrashIcon implements Icon {
+
+        private final Color color;
+        private final int size;
+
+        TrashIcon(Color color, int size) {
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component c,
+                Graphics g,
+                int x,
+                int y
+        ) {
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g2.setColor(color);
+
+            g2.setStroke(
+                    new BasicStroke(
+                            2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g2.drawLine(
+                    x + 4, y + 5,
+                    x + 14, y + 5
+            );
+
+            g2.drawLine(
+                    x + 7, y + 3,
+                    x + 11, y + 3
+            );
+
+            g2.drawRoundRect(
+                    x + 5, y + 6,
+                    8, 10,
+                    2, 2
+            );
+
+            g2.dispose();
+        }
     }
 
     // ================================================================

@@ -1,7 +1,15 @@
 package com.achat.ui.facture;
 
+import com.achat.model.Commande;
 import com.achat.model.Facture;
+import com.achat.model.Fournisseur;
+import com.achat.model.Personne;
+import com.achat.model.Societe;
+import com.achat.service.CommandeService;
 import com.achat.service.FactureService;
+import com.achat.service.FournisseurService;
+import com.achat.service.PersonneService;
+import com.achat.service.SocieteService;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
@@ -13,7 +21,10 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 
 /**
  * Interface de gestion des factures.
@@ -29,6 +40,10 @@ import java.util.List;
 public class FacturePanel extends JPanel {
 
     private final FactureService factureService;
+    private final CommandeService commandeService;
+    private final FournisseurService fournisseurService;
+    private final PersonneService personneService;
+    private final SocieteService societeService;
 
     private JTable table;
     private DefaultTableModel tableModel;
@@ -37,6 +52,13 @@ public class FacturePanel extends JPanel {
     private JButton btnActualiser;
     private JButton btnNouvelle;
     private JButton btnRechercher;
+
+    private JLabel lblPagination;
+    private JButton btnPrecedent;
+    private JButton btnSuivant;
+    private List<Facture> facturesCourantes = new ArrayList<>();
+    private int pageActuelle = 1;
+    private static final int PAGE_SIZE = 8;
 
     private static final Color PRIMARY = new Color(25, 25, 25);
     private static final Color WHITE = Color.WHITE;
@@ -54,6 +76,10 @@ public class FacturePanel extends JPanel {
     public FacturePanel() {
 
         factureService = new FactureService();
+        commandeService = new CommandeService();
+        fournisseurService = new FournisseurService();
+        personneService = new PersonneService();
+        societeService = new SocieteService();
 
         setLayout(new BorderLayout());
 
@@ -246,6 +272,28 @@ public class FacturePanel extends JPanel {
                 BorderLayout.CENTER
         );
 
+        JPanel pagination = new JPanel(new BorderLayout(10, 0));
+        pagination.setOpaque(false);
+
+        lblPagination = new JLabel();
+        lblPagination.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        lblPagination.setForeground(GRAY);
+
+        JPanel boutonsPagination = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        boutonsPagination.setOpaque(false);
+
+        btnPrecedent = creerBoutonPagination("‹ Précédent");
+        btnSuivant = creerBoutonPagination("Suivant ›");
+        btnPrecedent.addActionListener(e -> pagePrecedente());
+        btnSuivant.addActionListener(e -> pageSuivante());
+
+        boutonsPagination.add(btnPrecedent);
+        boutonsPagination.add(btnSuivant);
+        pagination.add(lblPagination, BorderLayout.WEST);
+        pagination.add(boutonsPagination, BorderLayout.EAST);
+
+        mainPanel.add(pagination, BorderLayout.SOUTH);
+
         add(
                 mainPanel,
                 BorderLayout.CENTER
@@ -260,6 +308,7 @@ public class FacturePanel extends JPanel {
         String[] colonnes = {
                 "ID",
                 "Numéro",
+                "Fournisseur",
                 "Date",
                 "Montant HT",
                 "TVA",
@@ -278,7 +327,7 @@ public class FacturePanel extends JPanel {
                     int row,
                     int column
             ) {
-                return false;
+                return column == 8;
             }
         };
 
@@ -346,35 +395,39 @@ public class FacturePanel extends JPanel {
 
         table.getColumnModel()
                 .getColumn(0)
-                .setPreferredWidth(55);
+                .setPreferredWidth(50);
 
         table.getColumnModel()
                 .getColumn(1)
-                .setPreferredWidth(170);
+                .setPreferredWidth(140);
 
         table.getColumnModel()
                 .getColumn(2)
-                .setPreferredWidth(115);
+                .setPreferredWidth(170);
 
         table.getColumnModel()
                 .getColumn(3)
-                .setPreferredWidth(135);
+                .setPreferredWidth(105);
 
         table.getColumnModel()
                 .getColumn(4)
-                .setPreferredWidth(100);
+                .setPreferredWidth(125);
 
         table.getColumnModel()
                 .getColumn(5)
-                .setPreferredWidth(145);
+                .setPreferredWidth(95);
 
         table.getColumnModel()
                 .getColumn(6)
-                .setPreferredWidth(135);
+                .setPreferredWidth(140);
 
         table.getColumnModel()
                 .getColumn(7)
-                .setPreferredWidth(100);
+                .setPreferredWidth(125);
+
+        table.getColumnModel()
+                .getColumn(8)
+                .setPreferredWidth(95);
 
         // ============================================================
         // RENDERS
@@ -387,15 +440,9 @@ public class FacturePanel extends JPanel {
                 );
 
         table.getColumnModel()
-                .getColumn(2)
-                .setCellRenderer(
-                        new CenterRenderer()
-                );
-
-        table.getColumnModel()
                 .getColumn(3)
                 .setCellRenderer(
-                        new MontantRenderer()
+                        new CenterRenderer()
                 );
 
         table.getColumnModel()
@@ -407,19 +454,35 @@ public class FacturePanel extends JPanel {
         table.getColumnModel()
                 .getColumn(5)
                 .setCellRenderer(
-                        new EtatPaiementRenderer()
+                        new MontantRenderer()
                 );
 
         table.getColumnModel()
                 .getColumn(6)
                 .setCellRenderer(
-                        new TotalRenderer()
+                        new EtatPaiementRenderer()
                 );
 
         table.getColumnModel()
                 .getColumn(7)
                 .setCellRenderer(
-                        new ActionRenderer()
+                        new TotalRenderer()
+                );
+
+        table.getColumnModel()
+                .getColumn(8)
+                .setPreferredWidth(120);
+
+        table.getColumnModel()
+                .getColumn(8)
+                .setCellRenderer(
+                        new ActionCellRenderer()
+                );
+
+        table.getColumnModel()
+                .getColumn(8)
+                .setCellEditor(
+                        new ActionCellEditor()
                 );
 
         // ============================================================
@@ -452,10 +515,11 @@ public class FacturePanel extends JPanel {
 
         try {
 
-            List<Facture> factures =
-                    factureService.findAll();
-
-            remplirTableau(factures);
+            facturesCourantes = new ArrayList<>(
+                    factureService.findAll()
+            );
+            pageActuelle = 1;
+            afficherPage();
 
         } catch (Exception e) {
 
@@ -473,9 +537,33 @@ public class FacturePanel extends JPanel {
             List<Facture> factures
     ) {
 
+        facturesCourantes = new ArrayList<>(factures);
+        pageActuelle = 1;
+        afficherPage();
+    }
+
+    private void afficherPage() {
         tableModel.setRowCount(0);
 
-        for (Facture facture : factures) {
+        int total = facturesCourantes.size();
+        int totalPages = Math.max(1, (int) Math.ceil(total / (double) PAGE_SIZE));
+        if (pageActuelle > totalPages) pageActuelle = totalPages;
+
+        String mot = total <= 1 ? "facture" : "factures";
+        if (lblPagination != null) {
+            lblPagination.setText(
+                    "Page " + pageActuelle + " / " + totalPages
+                            + "  (" + total + " " + mot + ")"
+            );
+            btnPrecedent.setEnabled(pageActuelle > 1);
+            btnSuivant.setEnabled(pageActuelle < totalPages);
+        }
+
+        int debut = (pageActuelle - 1) * PAGE_SIZE;
+        int fin = Math.min(debut + PAGE_SIZE, total);
+
+        for (int i = debut; i < fin; i++) {
+            Facture facture = facturesCourantes.get(i);
 
             double montantHt =
                     facture.getMontantTotalHt();
@@ -486,19 +574,88 @@ public class FacturePanel extends JPanel {
             double totalTtc =
                     facture.getMontantTtc();
 
+            String nomFournisseur =
+                    obtenirNomFournisseurPourCommande(
+                            facture.getIdCommande()
+                    );
+
             tableModel.addRow(
                     new Object[]{
                             facture.getIdFacture(),
                             facture.getNumFacture(),
+                            nomFournisseur,
                             facture.getDateFacture(),
                             formaterMontant(montantHt),
                             formaterMontant(tva),
                             facture.getEtatPaiement(),
                             formaterMontant(totalTtc),
-                            "Modifier"
+                            ""
                     }
             );
         }
+    }
+
+    /**
+     * Résout le nom du fournisseur associé à une commande.
+     */
+    private String obtenirNomFournisseurPourCommande(
+            int idCommande
+    ) {
+
+        if (idCommande <= 0) {
+            return "-";
+        }
+
+        try {
+
+            Commande commande =
+                    commandeService.findById(idCommande);
+
+            if (commande == null) {
+                return "-";
+            }
+
+            Fournisseur fournisseur =
+                    fournisseurService.findById(
+                            commande.getIdFournisseur()
+                    );
+
+            if (fournisseur == null) {
+                return "-";
+            }
+
+            if ("PERSONNE".equals(fournisseur.getTypeFournisseur())) {
+
+                Personne personne =
+                        personneService.findByFournisseur(
+                                commande.getIdFournisseur()
+                        );
+
+                if (personne != null) {
+                    return (personne.getNom() == null ? "" : personne.getNom())
+                            + " "
+                            + (personne.getPrenom() == null ? "" : personne.getPrenom());
+                }
+
+            } else {
+
+                Societe societe =
+                        societeService.findByFournisseur(
+                                commande.getIdFournisseur()
+                        );
+
+                if (societe != null) {
+                    return societe.getRaisonSociale() == null
+                            ? "-"
+                            : societe.getRaisonSociale();
+                }
+            }
+
+        } catch (Exception e) {
+            return "-";
+        }
+
+        return "-";
     }
 
     // ================================================================
@@ -612,6 +769,121 @@ public class FacturePanel extends JPanel {
         }
     }
 
+    private JButton creerBoutonPagination(String texte) {
+        JButton bouton = new JButton(texte);
+        bouton.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        bouton.setForeground(TEXT);
+        bouton.setBackground(WHITE);
+        bouton.setFocusPainted(false);
+        bouton.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(BORDER, 1, 8),
+                BorderFactory.createEmptyBorder(7, 12, 7, 12)
+        ));
+        bouton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return bouton;
+    }
+
+    private void pagePrecedente() {
+        if (pageActuelle > 1) { pageActuelle--; afficherPage(); }
+    }
+
+    private void pageSuivante() {
+        int totalPages = Math.max(1, (int) Math.ceil(facturesCourantes.size() / (double) PAGE_SIZE));
+        if (pageActuelle < totalPages) { pageActuelle++; afficherPage(); }
+    }
+
+    private void modifierLigne(int ligne) {
+        int modelRow = table.convertRowIndexToModel(ligne);
+        int id = Integer.parseInt(tableModel.getValueAt(modelRow, 0).toString());
+        try {
+            Facture facture = factureService.findById(id);
+            if (facture != null) afficherModal(new FactureForm(facture), "Modifier la facture");
+        } catch (Exception e) {
+            afficherErreur("Erreur lors de la modification de la facture.", e);
+        }
+    }
+
+    private void supprimerLigne(int ligne) {
+        int modelRow = table.convertRowIndexToModel(ligne);
+        int id = Integer.parseInt(tableModel.getValueAt(modelRow, 0).toString());
+        int confirmation = JOptionPane.showConfirmDialog(
+                this, "Voulez-vous vraiment supprimer cette facture ?",
+                "Confirmation de suppression", JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        if (confirmation != JOptionPane.YES_OPTION) return;
+        try {
+            factureService.supprimer(id);
+            chargerFactures();
+            JOptionPane.showMessageDialog(this, "Facture supprimée avec succès.",
+                    "Suppression", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            afficherErreur("Impossible de supprimer la facture.", e);
+        }
+    }
+
+    private static class ActionCellRenderer extends JPanel implements TableCellRenderer {
+        ActionCellRenderer() {
+            setOpaque(true);
+            setLayout(new FlowLayout(FlowLayout.CENTER, 7, 10));
+            add(new JLabel(new PencilIcon(new Color(70, 100, 180), 18)));
+            add(new JLabel(new TrashIcon(RED, 18)));
+        }
+        @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focus, int row, int column) {
+            setBackground(selected ? table.getSelectionBackground() : WHITE);
+            return this;
+        }
+    }
+
+    private class ActionCellEditor extends AbstractCellEditor implements TableCellEditor {
+        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 7, 10));
+        private int currentRow;
+        ActionCellEditor() {
+            panel.setBackground(WHITE);
+            JButton edit = new JButton(new PencilIcon(new Color(70, 100, 180), 18));
+            JButton delete = new JButton(new TrashIcon(RED, 18));
+            config(edit); config(delete);
+            edit.addActionListener(e -> { stopCellEditing(); modifierLigne(currentRow); });
+            delete.addActionListener(e -> { stopCellEditing(); supprimerLigne(currentRow); });
+            panel.add(edit); panel.add(delete);
+        }
+        private void config(JButton b) {
+            b.setFocusPainted(false); b.setBorderPainted(false); b.setContentAreaFilled(false);
+            b.setOpaque(false); b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            b.setPreferredSize(new Dimension(28, 28));
+        }
+        @Override public Component getTableCellEditorComponent(JTable table, Object value, boolean selected, int row, int column) {
+            currentRow = row; panel.setBackground(selected ? table.getSelectionBackground() : WHITE); return panel;
+        }
+        @Override public Object getCellEditorValue() { return ""; }
+    }
+
+    private static class PencilIcon implements Icon {
+        private final Color color; private final int size;
+        PencilIcon(Color color, int size) { this.color=color; this.size=size; }
+        public int getIconWidth(){return size;} public int getIconHeight(){return size;}
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2=(Graphics2D)g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color); g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawLine(x+5,y+13,x+13,y+5); g2.drawLine(x+4,y+14,x+7,y+13); g2.drawLine(x+13,y+5,x+11,y+3);
+            g2.dispose();
+        }
+    }
+
+    private static class TrashIcon implements Icon {
+        private final Color color; private final int size;
+        TrashIcon(Color color, int size) { this.color=color; this.size=size; }
+        public int getIconWidth(){return size;} public int getIconHeight(){return size;}
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2=(Graphics2D)g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color); g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawLine(x+4,y+5,x+14,y+5); g2.drawLine(x+7,y+3,x+11,y+3); g2.drawRoundRect(x+5,y+6,8,10,2,2);
+            g2.dispose();
+        }
+    }
+
     // ================================================================
     // MODAL
     // ================================================================
@@ -649,14 +921,14 @@ public class FacturePanel extends JPanel {
         form.setDialog(dialog);
 
         dialog.setSize(
-                650,
-                650
+                680,
+                800
         );
 
         dialog.setMinimumSize(
                 new Dimension(
-                        600,
-                        550
+                        650,
+                        720
                 )
         );
 
@@ -933,33 +1205,6 @@ public class FacturePanel extends JPanel {
             }
 
             return component;
-        }
-    }
-
-    // ================================================================
-    // RENDERER ACTION
-    // ================================================================
-
-    private static class ActionRenderer
-            extends DefaultTableCellRenderer {
-
-        public ActionRenderer() {
-
-            setHorizontalAlignment(
-                    SwingConstants.CENTER
-            );
-
-            setForeground(
-                    new Color(70, 100, 180)
-            );
-
-            setFont(
-                    new Font(
-                            "SansSerif",
-                            Font.BOLD,
-                            12
-                    )
-            );
         }
     }
 

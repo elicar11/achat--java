@@ -2,68 +2,87 @@ package com.achat.ui.commande;
 
 import com.achat.model.Commande;
 import com.achat.model.Fournisseur;
-import com.achat.model.LigneCommande;
+import com.achat.model.Personne;
+import com.achat.model.Societe;
 import com.achat.service.CommandeService;
 import com.achat.service.FournisseurService;
-
-import net.miginfocom.swing.MigLayout;
+import com.achat.service.PersonneService;
+import com.achat.service.SocieteService;
 
 import javax.swing.*;
+import javax.swing.border.AbstractBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.time.LocalDate;
+import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Interface de gestion des commandes.
- */
 public class CommandePanel extends JPanel {
-
-    // =========================================================
-    // COULEURS
-    // =========================================================
-
-    private static final Color BACKGROUND =
-            new Color(246, 246, 246);
-
-    private static final Color WHITE =
-            Color.WHITE;
-
-    private static final Color BLACK =
-            new Color(18, 18, 18);
-
-    private static final Color GRAY =
-            new Color(120, 120, 120);
-
-    private static final Color BORDER =
-            new Color(225, 225, 225);
-
-    private static final Color LIGHT_GRAY =
-            new Color(238, 238, 238);
-
-    private static final Color RED =
-            new Color(190, 50, 50);
 
     // =========================================================
     // SERVICES
     // =========================================================
 
-    private final CommandeService commandeService;
-    private final FournisseurService fournisseurService;
+    private final CommandeService commandeService = new CommandeService();
+    private final FournisseurService fournisseurService = new FournisseurService();
+    private final PersonneService personneService = new PersonneService();
+    private final SocieteService societeService = new SocieteService();
 
     // =========================================================
     // COMPOSANTS
     // =========================================================
 
+    private JTable table;
+    private DefaultTableModel tableModel;
     private JTextField txtRecherche;
 
-    private JTable table;
+    private JLabel lblPageInfo;
+    private JButton btnPagePrecedente;
+    private JButton btnPageSuivante;
 
-    private DefaultTableModel tableModel;
+    // =========================================================
+    // DONNÉES
+    // =========================================================
+
+    private List<Commande> commandesCourantes = new ArrayList<>();
+
+    private int pageActuelle = 0;
+
+    private static final int PAGE_SIZE = 10;
+
+    // =========================================================
+    // COULEURS
+    // =========================================================
+
+    private static final Color PRIMARY =
+            new Color(25, 25, 25);
+
+    private static final Color WHITE =
+            Color.WHITE;
+
+    private static final Color LIGHT_BG =
+            new Color(248, 249, 251);
+
+    private static final Color BORDER =
+            new Color(225, 228, 232);
+
+    private static final Color TEXT =
+            new Color(35, 38, 42);
+
+    private static final Color GRAY =
+            new Color(110, 115, 120);
+
+    private static final Color BLEU =
+            new Color(60, 110, 210);
+
+    private static final Color ROUGE =
+            new Color(200, 60, 60);
 
     // =========================================================
     // CONSTRUCTEUR
@@ -71,30 +90,19 @@ public class CommandePanel extends JPanel {
 
     public CommandePanel() {
 
-        commandeService =
-                new CommandeService();
+        setLayout(new BorderLayout());
+        setBackground(LIGHT_BG);
 
-        fournisseurService =
-                new FournisseurService();
-
-        construireInterface();
+        creerInterface();
 
         chargerCommandes();
     }
 
     // =========================================================
-    // CONSTRUCTION INTERFACE
+    // INTERFACE PRINCIPALE
     // =========================================================
 
-    private void construireInterface() {
-
-        /*
-         * BorderLayout est utilisé pour que le contenu
-         * occupe réellement toute la largeur et la hauteur.
-         */
-        setLayout(new BorderLayout());
-
-        setBackground(BACKGROUND);
+    private void creerInterface() {
 
         JPanel mainPanel =
                 new JPanel(new BorderLayout(0, 18));
@@ -102,12 +110,7 @@ public class CommandePanel extends JPanel {
         mainPanel.setOpaque(false);
 
         mainPanel.setBorder(
-                new EmptyBorder(
-                        28,
-                        28,
-                        28,
-                        28
-                )
+                new EmptyBorder(30, 30, 30, 30)
         );
 
         // =====================================================
@@ -130,7 +133,7 @@ public class CommandePanel extends JPanel {
                 )
         );
 
-        titre.setForeground(BLACK);
+        titre.setForeground(TEXT);
 
         header.add(
                 titre,
@@ -138,7 +141,7 @@ public class CommandePanel extends JPanel {
         );
 
         JButton btnAjouter =
-                createBlackButton(
+                creerBoutonPrincipal(
                         "+ Ajouter commande"
                 );
 
@@ -157,35 +160,42 @@ public class CommandePanel extends JPanel {
         );
 
         // =====================================================
-        // CARTE PRINCIPALE
+        // CARD PRINCIPALE
         // =====================================================
 
-        JPanel tableCard =
+        JPanel card =
                 new JPanel(
                         new BorderLayout(0, 12)
                 );
 
-        tableCard.setBackground(WHITE);
-
-        tableCard.setBorder(
-                new EmptyBorder(
-                        22,
-                        22,
-                        22,
-                        22
-                )
-        );
+        card.setOpaque(false);
 
         // =====================================================
-        // RECHERCHE
+        // BARRE DE RECHERCHE
         // =====================================================
 
-        JPanel recherchePanel =
+        JPanel recherche =
                 new JPanel(
                         new BorderLayout(8, 0)
                 );
 
-        recherchePanel.setOpaque(false);
+        recherche.setBackground(WHITE);
+
+        recherche.setBorder(
+                BorderFactory.createCompoundBorder(
+                        new RoundedBorder(
+                                BORDER,
+                                1,
+                                12
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                6,
+                                12,
+                                6,
+                                12
+                        )
+                )
+        );
 
         txtRecherche =
                 new JTextField();
@@ -198,28 +208,21 @@ public class CommandePanel extends JPanel {
                 )
         );
 
-        txtRecherche.setPreferredSize(
-                new Dimension(
-                        0,
-                        48
-                )
-        );
-
         txtRecherche.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                BORDER
-                        ),
-                        new EmptyBorder(
-                                0,
-                                12,
-                                0,
-                                12
-                        )
+                BorderFactory.createEmptyBorder(
+                        8,
+                        8,
+                        8,
+                        8
                 )
         );
 
-        recherchePanel.add(
+        txtRecherche.putClientProperty(
+                "JTextField.placeholderText",
+                "Rechercher par fournisseur ou état..."
+        );
+
+        recherche.add(
                 txtRecherche,
                 BorderLayout.CENTER
         );
@@ -228,7 +231,7 @@ public class CommandePanel extends JPanel {
                 new JPanel(
                         new FlowLayout(
                                 FlowLayout.RIGHT,
-                                0,
+                                8,
                                 0
                         )
                 );
@@ -236,15 +239,13 @@ public class CommandePanel extends JPanel {
         boutonsRecherche.setOpaque(false);
 
         JButton btnRechercher =
-                createWhiteButton(
-                        "Rechercher",
-                        125
+                creerBoutonSecondaire(
+                        "Rechercher"
                 );
 
         JButton btnActualiser =
-                createWhiteButton(
-                        "Actualiser",
-                        115
+                creerBoutonSecondaire(
+                        "Actualiser"
                 );
 
         btnRechercher.addActionListener(
@@ -260,25 +261,25 @@ public class CommandePanel extends JPanel {
                 }
         );
 
-        boutonsRecherche.add(
-                btnRechercher
+        txtRecherche.addActionListener(
+                e -> rechercher()
         );
 
         boutonsRecherche.add(
-                Box.createHorizontalStrut(8)
+                btnRechercher
         );
 
         boutonsRecherche.add(
                 btnActualiser
         );
 
-        recherchePanel.add(
+        recherche.add(
                 boutonsRecherche,
                 BorderLayout.EAST
         );
 
-        tableCard.add(
-                recherchePanel,
+        card.add(
+                recherche,
                 BorderLayout.NORTH
         );
 
@@ -286,13 +287,62 @@ public class CommandePanel extends JPanel {
         // TABLEAU
         // =====================================================
 
+        creerTableau();
+
+        JScrollPane scrollPane =
+                new JScrollPane(table);
+
+        scrollPane.setBorder(
+                new RoundedBorder(
+                        BORDER,
+                        1,
+                        14
+                )
+        );
+
+        scrollPane.setBackground(WHITE);
+
+        scrollPane.getViewport()
+                .setBackground(WHITE);
+
+        card.add(
+                scrollPane,
+                BorderLayout.CENTER
+        );
+
+        // =====================================================
+        // PAGINATION
+        // =====================================================
+
+        card.add(
+                creerBarrePagination(),
+                BorderLayout.SOUTH
+        );
+
+        mainPanel.add(
+                card,
+                BorderLayout.CENTER
+        );
+
+        add(
+                mainPanel,
+                BorderLayout.CENTER
+        );
+    }
+
+    // =========================================================
+    // CRÉATION DU TABLEAU
+    // =========================================================
+
+    private void creerTableau() {
+
         String[] colonnes = {
-                "ID",
-                "Date",
-                "Fournisseur",
-                "État",
-                "Total",
-                "Actions"
+            "ID",
+            "Date",
+            "Fournisseur",
+            "État",
+            "Total",
+            "Actions"
         };
 
         tableModel =
@@ -306,184 +356,196 @@ public class CommandePanel extends JPanel {
                             int row,
                             int column
                     ) {
-                        return false;
+
+                        return column == 5;
                     }
                 };
 
         table =
                 new JTable(tableModel);
 
+        // -----------------------------------------------------
+        // STYLE TABLE
+        // -----------------------------------------------------
+
+        table.setRowHeight(48);
+
         table.setFont(
                 new Font(
                         "SansSerif",
                         Font.PLAIN,
-                        14
+                        13
                 )
         );
 
-        table.setRowHeight(48);
+        table.setForeground(TEXT);
 
-        table.setSelectionMode(
-                ListSelectionModel.SINGLE_SELECTION
+        table.setBackground(WHITE);
+
+        table.setGridColor(
+                new Color(238, 240, 243)
         );
 
         table.setShowVerticalLines(false);
 
         table.setShowHorizontalLines(true);
 
-        table.setGridColor(
-                new Color(
-                        235,
-                        235,
-                        235
-                )
-        );
-
-        table.setIntercellSpacing(
-                new Dimension(
-                        0,
-                        0
-                )
+        table.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
         );
 
         table.setSelectionBackground(
-                LIGHT_GRAY
+                new Color(242, 244, 247)
         );
 
-        table.setSelectionForeground(
-                BLACK
-        );
+        table.setSelectionForeground(TEXT);
 
-        // =====================================================
-        // HEADER TABLE
-        // =====================================================
+        // -----------------------------------------------------
+        // HEADER
+        // -----------------------------------------------------
 
         table.getTableHeader()
-                .setReorderingAllowed(false);
+                .setPreferredSize(
+                        new Dimension(0, 44)
+                );
 
         table.getTableHeader()
                 .setFont(
                         new Font(
                                 "SansSerif",
                                 Font.BOLD,
-                                13
+                                12
                         )
                 );
 
         table.getTableHeader()
-                .setForeground(BLACK);
+                .setForeground(GRAY);
 
         table.getTableHeader()
                 .setBackground(
                         new Color(
                                 248,
-                                248,
-                                248
+                                249,
+                                251
                         )
                 );
 
         table.getTableHeader()
-                .setPreferredSize(
-                        new Dimension(
-                                0,
-                                45
-                        )
-                );
+                .setReorderingAllowed(false);
 
-        // =====================================================
-        // LARGEURS COLONNES
-        // =====================================================
+        // -----------------------------------------------------
+        // RENDERER GÉNÉRAL
+        // -----------------------------------------------------
 
-        table.setAutoResizeMode(
-                JTable.AUTO_RESIZE_ALL_COLUMNS
+        DefaultTableCellRenderer renderer =
+                new DefaultTableCellRenderer() {
+
+                    @Override
+                    public Component
+                    getTableCellRendererComponent(
+                            JTable table,
+                            Object value,
+                            boolean selected,
+                            boolean focus,
+                            int row,
+                            int column
+                    ) {
+
+                        Component c =
+                                super.getTableCellRendererComponent(
+                                        table,
+                                        value,
+                                        selected,
+                                        focus,
+                                        row,
+                                        column
+                                );
+
+                        setBorder(
+                                BorderFactory.createEmptyBorder(
+                                        0,
+                                        12,
+                                        0,
+                                        12
+                                )
+                        );
+
+                        if (!selected) {
+
+                            setBackground(WHITE);
+
+                            setForeground(TEXT);
+                        }
+
+                        if (column == 0) {
+
+                            setHorizontalAlignment(
+                                    SwingConstants.CENTER
+                            );
+
+                        } else {
+
+                            setHorizontalAlignment(
+                                    SwingConstants.LEFT
+                            );
+                        }
+
+                        return c;
+                    }
+                };
+
+        table.setDefaultRenderer(
+                Object.class,
+                renderer
         );
+
+        // -----------------------------------------------------
+        // LARGEURS
+        // -----------------------------------------------------
 
         table.getColumnModel()
                 .getColumn(0)
-                .setPreferredWidth(70);
+                .setPreferredWidth(50);
 
         table.getColumnModel()
                 .getColumn(1)
-                .setPreferredWidth(160);
+                .setPreferredWidth(130);
 
         table.getColumnModel()
                 .getColumn(2)
-                .setPreferredWidth(300);
+                .setPreferredWidth(240);
 
         table.getColumnModel()
                 .getColumn(3)
-                .setPreferredWidth(180);
+                .setPreferredWidth(130);
 
         table.getColumnModel()
                 .getColumn(4)
-                .setPreferredWidth(180);
+                .setPreferredWidth(130);
 
         table.getColumnModel()
                 .getColumn(5)
-                .setPreferredWidth(150);
+                .setPreferredWidth(110);
 
-        // =====================================================
-        // CENTRAGE
-        // =====================================================
-
-        DefaultTableCellRenderer center =
-                new DefaultTableCellRenderer();
-
-        center.setHorizontalAlignment(
-                SwingConstants.CENTER
-        );
-
-        table.getColumnModel()
-                .getColumn(0)
-                .setCellRenderer(center);
-
-        table.getColumnModel()
-                .getColumn(1)
-                .setCellRenderer(center);
-
-        table.getColumnModel()
-                .getColumn(3)
-                .setCellRenderer(center);
-
-        table.getColumnModel()
-                .getColumn(4)
-                .setCellRenderer(center);
+        // -----------------------------------------------------
+        // ACTIONS
+        // -----------------------------------------------------
 
         table.getColumnModel()
                 .getColumn(5)
-                .setCellRenderer(center);
+                .setCellRenderer(
+                        new ActionCellRenderer()
+                );
 
-        // =====================================================
-        // SCROLLPANE
-        // =====================================================
+        table.getColumnModel()
+                .getColumn(5)
+                .setCellEditor(
+                        new ActionCellEditor()
+                );
 
-        JScrollPane scrollPane =
-                new JScrollPane(table);
-
-        scrollPane.setBorder(
-                BorderFactory.createLineBorder(
-                        BORDER
-                )
-        );
-
-        scrollPane.setBackground(WHITE);
-
-        scrollPane.getViewport()
-                .setBackground(WHITE);
-
-        /*
-         * IMPORTANT :
-         * BorderLayout.CENTER permet au tableau
-         * de prendre toute la place disponible.
-         */
-        tableCard.add(
-                scrollPane,
-                BorderLayout.CENTER
-        );
-
-        // =====================================================
+        // -----------------------------------------------------
         // DOUBLE CLIC
-        // =====================================================
+        // -----------------------------------------------------
 
         table.addMouseListener(
                 new MouseAdapter() {
@@ -493,132 +555,154 @@ public class CommandePanel extends JPanel {
                             MouseEvent e
                     ) {
 
-                        if (e.getClickCount() == 2
-                                && SwingUtilities
-                                .isLeftMouseButton(e)) {
+                        if (
+                                e.getClickCount() == 2
+                                && SwingUtilities.isLeftMouseButton(e)
+                        ) {
 
-                            modifierSelection();
+                            int colonne =
+                                    table.columnAtPoint(
+                                            e.getPoint()
+                                    );
+
+                            if (colonne != 5) {
+
+                                modifierSelection();
+                            }
                         }
                     }
                 }
         );
-
-        // =====================================================
-        // MAIN PANEL
-        // =====================================================
-
-        mainPanel.add(
-                tableCard,
-                BorderLayout.CENTER
-        );
-
-        add(
-                mainPanel,
-                BorderLayout.CENTER
-        );
-
-        // =====================================================
-        // ENTER DANS RECHERCHE
-        // =====================================================
-
-        txtRecherche.addActionListener(
-                e -> rechercher()
-        );
     }
 
     // =========================================================
-    // CHARGER COMMANDES
+    // PAGINATION
+    // =========================================================
+
+    private JPanel creerBarrePagination() {
+
+        JPanel panel =
+                new JPanel(
+                        new BorderLayout()
+                );
+
+        panel.setOpaque(false);
+
+        panel.setBorder(
+                BorderFactory.createEmptyBorder(
+                        12,
+                        4,
+                        0,
+                        4
+                )
+        );
+
+        lblPageInfo =
+                new JLabel("Page 1 / 1");
+
+        lblPageInfo.setFont(
+                new Font(
+                        "SansSerif",
+                        Font.PLAIN,
+                        13
+                )
+        );
+
+        lblPageInfo.setForeground(GRAY);
+
+        panel.add(
+                lblPageInfo,
+                BorderLayout.WEST
+        );
+
+        JPanel boutons =
+                new JPanel(
+                        new FlowLayout(
+                                FlowLayout.RIGHT,
+                                8,
+                                0
+                        )
+                );
+
+        boutons.setOpaque(false);
+
+        btnPagePrecedente =
+                creerBoutonSecondaire(
+                        "‹ Précédent"
+                );
+
+        btnPageSuivante =
+                creerBoutonSecondaire(
+                        "Suivant ›"
+                );
+
+        btnPagePrecedente.addActionListener(
+                e -> {
+
+                    if (pageActuelle > 0) {
+
+                        pageActuelle--;
+
+                        afficherPage();
+                    }
+                }
+        );
+
+        btnPageSuivante.addActionListener(
+                e -> {
+
+                    if (
+                            (pageActuelle + 1)
+                            * PAGE_SIZE
+                            < commandesCourantes.size()
+                    ) {
+
+                        pageActuelle++;
+
+                        afficherPage();
+                    }
+                }
+        );
+
+        boutons.add(
+                btnPagePrecedente
+        );
+
+        boutons.add(
+                btnPageSuivante
+        );
+
+        panel.add(
+                boutons,
+                BorderLayout.EAST
+        );
+
+        return panel;
+    }
+
+    // =========================================================
+    // CHARGEMENT
     // =========================================================
 
     private void chargerCommandes() {
 
         try {
 
-            List<Commande> commandes =
-                    commandeService.findAll();
+            commandesCourantes =
+                    new ArrayList<>(
+                            commandeService.findAll()
+                    );
 
-            afficherCommandes(
-                    commandes
-            );
+            pageActuelle = 0;
+
+            afficherPage();
 
         } catch (Exception e) {
 
             afficherErreur(
-                    "Impossible de charger les commandes.",
+                    "Erreur lors du chargement des commandes.",
                     e
             );
-        }
-    }
-
-    // =========================================================
-    // AFFICHER COMMANDES
-    // =========================================================
-
-    private void afficherCommandes(
-            List<Commande> commandes
-    ) {
-
-        tableModel.setRowCount(0);
-
-        for (Commande commande :
-                commandes) {
-
-            String fournisseur =
-                    "Fournisseur #"
-                            + commande
-                            .getIdFournisseur();
-
-            String total =
-                    calculerTotal(
-                            commande
-                                    .getIdCommande()
-                    );
-
-            tableModel.addRow(
-                    new Object[]{
-                            commande
-                                    .getIdCommande(),
-
-                            commande
-                                    .getDateCommande(),
-
-                            fournisseur,
-
-                            commande
-                                    .getEtatCommande(),
-
-                            total,
-
-                            "Modifier"
-                    }
-            );
-        }
-    }
-
-    // =========================================================
-    // CALCUL TOTAL
-    // =========================================================
-
-    private String calculerTotal(
-            int idCommande
-    ) {
-
-        try {
-
-            double total =
-                    commandeService
-                            .calculerTotal(
-                                    idCommande
-                            );
-
-            return String.format(
-                    "%.2f Ar",
-                    total
-            );
-
-        } catch (Exception e) {
-
-            return "0.00 Ar";
         }
     }
 
@@ -630,27 +714,31 @@ public class CommandePanel extends JPanel {
 
         try {
 
-            String motCle =
+            String texte =
                     txtRecherche
                             .getText()
                             .trim();
 
-            if (motCle.isEmpty()) {
+            if (texte.isEmpty()) {
 
-                chargerCommandes();
+                commandesCourantes =
+                        new ArrayList<>(
+                                commandeService.findAll()
+                        );
 
-                return;
+            } else {
+
+                commandesCourantes =
+                        new ArrayList<>(
+                                commandeService.rechercher(
+                                        texte
+                                )
+                        );
             }
 
-            List<Commande> commandes =
-                    commandeService
-                            .rechercher(
-                                    motCle
-                            );
+            pageActuelle = 0;
 
-            afficherCommandes(
-                    commandes
-            );
+            afficherPage();
 
         } catch (Exception e) {
 
@@ -662,17 +750,176 @@ public class CommandePanel extends JPanel {
     }
 
     // =========================================================
+    // AFFICHER PAGE
+    // =========================================================
+
+    private void afficherPage() {
+
+        tableModel.setRowCount(0);
+
+        int total =
+                commandesCourantes.size();
+
+        int debut =
+                pageActuelle * PAGE_SIZE;
+
+        int fin =
+                Math.min(
+                        debut + PAGE_SIZE,
+                        total
+                );
+
+        for (int i = debut; i < fin; i++) {
+
+            Commande commande =
+                    commandesCourantes.get(i);
+
+            tableModel.addRow(
+                    new Object[]{
+                        commande.getIdCommande(),
+                        commande.getDateCommande(),
+                        obtenirNomFournisseur(
+                                commande.getIdFournisseur()
+                        ),
+                        commande.getEtatCommande(),
+                        calculerTotal(
+                                commande.getIdCommande()
+                        ),
+                        ""
+                    }
+            );
+        }
+
+        int nombrePages =
+                Math.max(
+                        1,
+                        (int) Math.ceil(
+                                total / (double) PAGE_SIZE
+                        )
+                );
+
+        lblPageInfo.setText(
+                "Page "
+                + (pageActuelle + 1)
+                + " / "
+                + nombrePages
+                + "  ("
+                + total
+                + " commande"
+                + (total > 1 ? "s" : "")
+                + ")"
+        );
+
+        btnPagePrecedente.setEnabled(
+                pageActuelle > 0
+        );
+
+        btnPageSuivante.setEnabled(
+                fin < total
+        );
+    }
+
+    // =========================================================
+    // FOURNISSEUR
+    // =========================================================
+
+    private String obtenirNomFournisseur(
+            int idFournisseur
+    ) {
+
+        try {
+
+            Fournisseur fournisseur =
+                    fournisseurService.findById(
+                            idFournisseur
+                    );
+
+            if (fournisseur == null) {
+
+                return "Fournisseur #"
+                        + idFournisseur;
+            }
+
+            if (
+                    "PERSONNE".equals(
+                            fournisseur.getTypeFournisseur()
+                    )
+            ) {
+
+                Personne personne =
+                        personneService
+                                .findByFournisseur(
+                                        idFournisseur
+                                );
+
+                if (personne != null) {
+
+                    return valeur(personne.getNom())
+                            + " "
+                            + valeur(personne.getPrenom());
+                }
+
+            } else {
+
+                Societe societe =
+                        societeService
+                                .findByFournisseur(
+                                        idFournisseur
+                                );
+
+                if (societe != null) {
+
+                    return valeur(
+                            societe.getRaisonSociale()
+                    );
+                }
+            }
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "Erreur fournisseur : "
+                    + e.getMessage()
+            );
+        }
+
+        return "Fournisseur #"
+                + idFournisseur;
+    }
+
+    // =========================================================
+    // TOTAL COMMANDE
+    // =========================================================
+
+    private String calculerTotal(
+            int idCommande
+    ) {
+
+        try {
+
+            return String.format(
+                    "%.2f Ar",
+                    commandeService
+                            .calculerTotal(
+                                    idCommande
+                            )
+            );
+
+        } catch (Exception e) {
+
+            return "0.00 Ar";
+        }
+    }
+
+    // =========================================================
     // AJOUT
     // =========================================================
 
     private void ouvrirAjout() {
 
-        CommandeForm form =
-                new CommandeForm();
-
         afficherModal(
                 "Ajouter une commande",
-                form
+                new CommandeForm()
         );
     }
 
@@ -687,10 +934,24 @@ public class CommandePanel extends JPanel {
 
         if (ligne < 0) {
 
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Veuillez sélectionner une commande.",
+                    "Information",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
             return;
         }
 
-        int modelRow =
+        modifierLigne(ligne);
+    }
+
+    private void modifierLigne(
+            int ligne
+    ) {
+
+        int ligneModele =
                 table.convertRowIndexToModel(
                         ligne
                 );
@@ -699,7 +960,7 @@ public class CommandePanel extends JPanel {
                 Integer.parseInt(
                         tableModel
                                 .getValueAt(
-                                        modelRow,
+                                        ligneModele,
                                         0
                                 )
                                 .toString()
@@ -708,7 +969,7 @@ public class CommandePanel extends JPanel {
         try {
 
             Commande commande =
-                    trouverCommande(id);
+                    commandeService.findById(id);
 
             if (commande == null) {
 
@@ -722,14 +983,9 @@ public class CommandePanel extends JPanel {
                 return;
             }
 
-            CommandeForm form =
-                    new CommandeForm(
-                            commande
-                    );
-
             afficherModal(
                     "Modifier la commande",
-                    form
+                    new CommandeForm(commande)
             );
 
         } catch (Exception e) {
@@ -742,27 +998,59 @@ public class CommandePanel extends JPanel {
     }
 
     // =========================================================
-    // TROUVER COMMANDE
+    // SUPPRESSION
     // =========================================================
 
-    private Commande trouverCommande(
-            int id
-    ) throws Exception {
+    private void supprimerLigne(
+            int ligne
+    ) {
 
-        List<Commande> commandes =
-                commandeService.findAll();
+        int ligneModele =
+                table.convertRowIndexToModel(
+                        ligne
+                );
 
-        for (Commande commande :
-                commandes) {
+        int id =
+                Integer.parseInt(
+                        tableModel
+                                .getValueAt(
+                                        ligneModele,
+                                        0
+                                )
+                                .toString()
+                );
 
-            if (commande.getIdCommande()
-                    == id) {
+        int confirmation =
+                JOptionPane.showConfirmDialog(
+                        this,
+                        "Voulez-vous vraiment supprimer cette commande ?\n"
+                        + "Cette action est irréversible.",
+                        "Confirmer la suppression",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                );
 
-                return commande;
-            }
+        if (
+                confirmation
+                != JOptionPane.YES_OPTION
+        ) {
+
+            return;
         }
 
-        return null;
+        try {
+
+            commandeService.supprimer(id);
+
+            chargerCommandes();
+
+        } catch (Exception e) {
+
+            afficherErreur(
+                    "Erreur lors de la suppression de la commande.",
+                    e
+            );
+        }
     }
 
     // =========================================================
@@ -775,10 +1063,9 @@ public class CommandePanel extends JPanel {
     ) {
 
         Window parent =
-                SwingUtilities
-                        .getWindowAncestor(
-                                this
-                        );
+                SwingUtilities.getWindowAncestor(
+                        this
+                );
 
         JDialog dialog;
 
@@ -830,9 +1117,7 @@ public class CommandePanel extends JPanel {
                 )
         );
 
-        dialog.setLocationRelativeTo(
-                this
-        );
+        dialog.setLocationRelativeTo(this);
 
         dialog.setResizable(false);
 
@@ -842,17 +1127,17 @@ public class CommandePanel extends JPanel {
     }
 
     // =========================================================
-    // BOUTON NOIR
+    // BOUTON PRINCIPAL
     // =========================================================
 
-    private JButton createBlackButton(
-            String text
+    private JButton creerBoutonPrincipal(
+            String texte
     ) {
 
-        JButton button =
-                new JButton(text);
+        JButton bouton =
+                new JButton(texte);
 
-        button.setFont(
+        bouton.setFont(
                 new Font(
                         "SansSerif",
                         Font.BOLD,
@@ -860,50 +1145,47 @@ public class CommandePanel extends JPanel {
                 )
         );
 
-        button.setForeground(WHITE);
+        bouton.setForeground(WHITE);
 
-        button.setBackground(BLACK);
+        bouton.setBackground(PRIMARY);
 
-        button.setFocusPainted(false);
+        bouton.setFocusPainted(false);
 
-        button.setBorder(
-                new EmptyBorder(
-                        0,
-                        20,
-                        0,
-                        20
+        bouton.setBorder(
+                BorderFactory.createEmptyBorder(
+                        11,
+                        18,
+                        11,
+                        18
                 )
         );
 
-        button.setPreferredSize(
-                new Dimension(
-                        175,
-                        48
-                )
-        );
-
-        button.setCursor(
+        bouton.setCursor(
                 new Cursor(
                         Cursor.HAND_CURSOR
                 )
         );
 
-        return button;
+        bouton.putClientProperty(
+                "JButton.buttonType",
+                "roundRect"
+        );
+
+        return bouton;
     }
 
     // =========================================================
-    // BOUTON BLANC
+    // BOUTON SECONDAIRE
     // =========================================================
 
-    private JButton createWhiteButton(
-            String text,
-            int width
+    private JButton creerBoutonSecondaire(
+            String texte
     ) {
 
-        JButton button =
-                new JButton(text);
+        JButton bouton =
+                new JButton(texte);
 
-        button.setFont(
+        bouton.setFont(
                 new Font(
                         "SansSerif",
                         Font.PLAIN,
@@ -911,40 +1193,46 @@ public class CommandePanel extends JPanel {
                 )
         );
 
-        button.setForeground(BLACK);
+        bouton.setForeground(TEXT);
 
-        button.setBackground(WHITE);
+        bouton.setBackground(WHITE);
 
-        button.setFocusPainted(false);
+        bouton.setFocusPainted(false);
 
-        button.setBorder(
+        bouton.setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                BORDER
+                        new RoundedBorder(
+                                BORDER,
+                                1,
+                                8
                         ),
-                        new EmptyBorder(
-                                0,
-                                15,
-                                0,
-                                15
+                        BorderFactory.createEmptyBorder(
+                                8,
+                                14,
+                                8,
+                                14
                         )
                 )
         );
 
-        button.setPreferredSize(
-                new Dimension(
-                        width,
-                        48
-                )
-        );
-
-        button.setCursor(
+        bouton.setCursor(
                 new Cursor(
                         Cursor.HAND_CURSOR
                 )
         );
 
-        return button;
+        return bouton;
+    }
+
+    // =========================================================
+    // VALEUR
+    // =========================================================
+
+    private String valeur(String texte) {
+
+        return texte == null
+                ? ""
+                : texte;
     }
 
     // =========================================================
@@ -959,12 +1247,473 @@ public class CommandePanel extends JPanel {
         JOptionPane.showMessageDialog(
                 this,
                 message
-                        + "\n\n"
-                        + e.getMessage(),
+                + "\n\n"
+                + e.getMessage(),
                 "Erreur",
                 JOptionPane.ERROR_MESSAGE
         );
 
         e.printStackTrace();
+    }
+
+    // =========================================================
+    // RENDERER ACTIONS
+    // =========================================================
+
+    private class ActionCellRenderer
+            extends JPanel
+            implements TableCellRenderer {
+
+        public ActionCellRenderer() {
+
+            setOpaque(true);
+
+            setLayout(
+                    new FlowLayout(
+                            FlowLayout.CENTER,
+                            7,
+                            10
+                    )
+            );
+
+            add(
+                    new JLabel(
+                            new PencilIcon(
+                                    BLEU,
+                                    18
+                            )
+                    )
+            );
+
+            add(
+                    new JLabel(
+                            new TrashIcon(
+                                    ROUGE,
+                                    18
+                            )
+                    )
+            );
+        }
+
+        @Override
+        public Component
+        getTableCellRendererComponent(
+                JTable table,
+                Object value,
+                boolean selected,
+                boolean focus,
+                int row,
+                int column
+        ) {
+
+            setBackground(
+                    selected
+                    ? table.getSelectionBackground()
+                    : WHITE
+            );
+
+            return this;
+        }
+    }
+
+    // =========================================================
+    // EDITOR ACTIONS
+    // =========================================================
+
+    private class ActionCellEditor
+            extends AbstractCellEditor
+            implements TableCellEditor {
+
+        private final JPanel panel;
+
+        private int ligneCourante;
+
+        public ActionCellEditor() {
+
+            panel =
+                    new JPanel(
+                            new FlowLayout(
+                                    FlowLayout.CENTER,
+                                    7,
+                                    10
+                            )
+                    );
+
+            panel.setBackground(WHITE);
+
+            JButton modifier =
+                    new JButton(
+                            new PencilIcon(
+                                    BLEU,
+                                    18
+                            )
+                    );
+
+            JButton supprimer =
+                    new JButton(
+                            new TrashIcon(
+                                    ROUGE,
+                                    18
+                            )
+                    );
+
+            configurerBoutonAction(
+                    modifier
+            );
+
+            configurerBoutonAction(
+                    supprimer
+            );
+
+            modifier.addActionListener(
+                    e -> {
+
+                        fireEditingStopped();
+
+                        table.setRowSelectionInterval(
+                                ligneCourante,
+                                ligneCourante
+                        );
+
+                        modifierLigne(
+                                ligneCourante
+                        );
+                    }
+            );
+
+            supprimer.addActionListener(
+                    e -> {
+
+                        fireEditingStopped();
+
+                        supprimerLigne(
+                                ligneCourante
+                        );
+                    }
+            );
+
+            panel.add(modifier);
+
+            panel.add(supprimer);
+        }
+
+        private void configurerBoutonAction(
+                JButton bouton
+        ) {
+
+            bouton.setFocusPainted(false);
+
+            bouton.setBorderPainted(false);
+
+            bouton.setContentAreaFilled(false);
+
+            bouton.setOpaque(false);
+
+            bouton.setCursor(
+                    new Cursor(
+                            Cursor.HAND_CURSOR
+                    )
+            );
+
+            bouton.setPreferredSize(
+                    new Dimension(
+                            28,
+                            28
+                    )
+            );
+        }
+
+        @Override
+        public Component
+        getTableCellEditorComponent(
+                JTable table,
+                Object value,
+                boolean selected,
+                int row,
+                int column
+        ) {
+
+            ligneCourante = row;
+
+            panel.setBackground(
+                    selected
+                    ? table.getSelectionBackground()
+                    : WHITE
+            );
+
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+
+            return "";
+        }
+    }
+
+    // =========================================================
+    // ICÔNE MODIFIER
+    // =========================================================
+
+    private static class PencilIcon
+            implements Icon {
+
+        private final Color color;
+        private final int size;
+
+        public PencilIcon(
+                Color color,
+                int size
+        ) {
+
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component component,
+                Graphics graphics,
+                int x,
+                int y
+        ) {
+
+            Graphics2D g =
+                    (Graphics2D)
+                            graphics.create();
+
+            g.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g.setColor(color);
+
+            g.setStroke(
+                    new BasicStroke(
+                            2.2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g.drawLine(
+                    x + 5,
+                    y + 13,
+                    x + 13,
+                    y + 5
+            );
+
+            g.drawLine(
+                    x + 4,
+                    y + 14,
+                    x + 7,
+                    y + 13
+            );
+
+            g.drawLine(
+                    x + 13,
+                    y + 5,
+                    x + 11,
+                    y + 3
+            );
+
+            g.dispose();
+        }
+    }
+
+    // =========================================================
+    // ICÔNE SUPPRIMER
+    // =========================================================
+
+    private static class TrashIcon
+            implements Icon {
+
+        private final Color color;
+        private final int size;
+
+        public TrashIcon(
+                Color color,
+                int size
+        ) {
+
+            this.color = color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+
+            return size;
+        }
+
+        @Override
+        public void paintIcon(
+                Component component,
+                Graphics graphics,
+                int x,
+                int y
+        ) {
+
+            Graphics2D g =
+                    (Graphics2D)
+                            graphics.create();
+
+            g.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g.setColor(color);
+
+            g.setStroke(
+                    new BasicStroke(
+                            2f,
+                            BasicStroke.CAP_ROUND,
+                            BasicStroke.JOIN_ROUND
+                    )
+            );
+
+            g.drawLine(
+                    x + 4,
+                    y + 5,
+                    x + 14,
+                    y + 5
+            );
+
+            g.drawLine(
+                    x + 7,
+                    y + 3,
+                    x + 11,
+                    y + 3
+            );
+
+            g.drawRoundRect(
+                    x + 5,
+                    y + 6,
+                    8,
+                    10,
+                    2,
+                    2
+            );
+
+            g.dispose();
+        }
+    }
+
+    // =========================================================
+    // BORDURE ARRONDIE
+    // =========================================================
+
+    private static class RoundedBorder
+            extends AbstractBorder {
+
+        private final Color color;
+        private final int thickness;
+        private final int radius;
+
+        public RoundedBorder(
+                Color color,
+                int thickness,
+                int radius
+        ) {
+
+            this.color = color;
+            this.thickness = thickness;
+            this.radius = radius;
+        }
+
+        @Override
+        public void paintBorder(
+                Component component,
+                Graphics graphics,
+                int x,
+                int y,
+                int width,
+                int height
+        ) {
+
+            Graphics2D g =
+                    (Graphics2D)
+                            graphics.create();
+
+            g.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g.setColor(color);
+
+            g.setStroke(
+                    new BasicStroke(
+                            thickness
+                    )
+            );
+
+            g.draw(
+                    new RoundRectangle2D.Double(
+                            x + thickness / 2.0,
+                            y + thickness / 2.0,
+                            width - thickness,
+                            height - thickness,
+                            radius,
+                            radius
+                    )
+            );
+
+            g.dispose();
+        }
+
+        @Override
+        public Insets getBorderInsets(
+                Component component
+        ) {
+
+            return new Insets(
+                    thickness + 4,
+                    thickness + 4,
+                    thickness + 4,
+                    thickness + 4
+            );
+        }
+
+        @Override
+        public Insets getBorderInsets(
+                Component component,
+                Insets insets
+        ) {
+
+            insets.top =
+                    thickness + 4;
+
+            insets.left =
+                    thickness + 4;
+
+            insets.bottom =
+                    thickness + 4;
+
+            insets.right =
+                    thickness + 4;
+
+            return insets;
+        }
     }
 }
