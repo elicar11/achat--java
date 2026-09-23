@@ -48,7 +48,7 @@ Opérations :
 - Rechercher
 - Validation des champs
 
-### 📦 Produits
+### Produits
 
 Un produit contient notamment :
 - Identifiant
@@ -65,7 +65,7 @@ Opérations :
 - Contrôler le stock
 - Détecter les stocks faibles ou en rupture
 
-### 💰 Produits proposés
+### Produits proposés
 
 La relation **PROPOSER** associe :
 - un fournisseur ;
@@ -257,7 +257,7 @@ Maven téléchargera automatiquement les bibliothèques déclarées dans `pom.xm
 
 ---
 
-# ▶️ Lancement
+# Lancement
 
 ## Depuis NetBeans
 
@@ -270,7 +270,7 @@ com.achat.Achat
 ou utiliser :
 
 ```text
-Run Project
+Run Project ou F6 dans NetBeans
 ```
 
 ## Avec Maven
@@ -338,7 +338,6 @@ Les versions exactes sont définies dans :
 ```text
 pom.xml
 ```
-
 ---
 
 # Bonnes pratiques
