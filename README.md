@@ -1,5 +1,5 @@
-<p align="center"><strong>** 🛒 Achat **</strong></p>
-Application de gestion des achats et des stocks
+                                                # 🛒 Achat
+## Application de gestion des achats et des stocks
 
 ## Présentation
 
