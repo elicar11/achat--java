@@ -1,4 +1,5 @@
-# 🛒 Achat — Application de gestion des achats et des stocks
+<p align="center"><strong>** 🛒 Achat **</strong></p>
+Application de gestion des achats et des stocks
 
 ## Présentation
 
