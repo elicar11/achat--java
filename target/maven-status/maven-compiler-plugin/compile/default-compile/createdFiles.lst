@@ -16,6 +16,7 @@ com\achat\ui\MainFrame$3.class
 com\achat\Achat.class
 com\achat\ui\MainFrame$ReceptionIcon.class
 com\achat\model\Societe.class
+com\achat\ui\fournisseur\FournisseurForm$3.class
 com\achat\ui\commande\CommandeForm$FournisseurItem.class
 com\achat\ui\proposer\ProposerPanel$TrashIcon.class
 com\achat\service\FournisseurService.class

@@ -252,7 +252,7 @@ public class MainFrame extends JFrame {
         sidebar.add(createMenuButton(new BoxIcon(GRAY, 21), "Produits", "produit"), "growx");
 
         // PROPOSITIONS PRIX
-        sidebar.add(createMenuButton(new TagIcon(GRAY, 21), "Propositions", "proposer"), "growx");
+        sidebar.add(createMenuButton(new TagIcon(GRAY, 21), "Propositions Prix", "proposer"), "growx");
 
         // COMMANDES
         sidebar.add(createMenuButton(new CommandIcon(GRAY, 21), "Commandes", "commande"), "growx");
@@ -492,13 +492,15 @@ public class MainFrame extends JFrame {
             @Override
             public void mouseEntered(MouseEvent e) {
                 button.setOpaque(true);
+
                 if (closeButton) {
                     button.setBackground(RED_HOVER);
-                    button.setIcon(new CloseIcon(WHITE, 15));
+                    button.setIcon(recolorer(button.getIcon(), WHITE));
                 } else {
                     button.setBackground(LIGHT_GRAY);
-                    button.setIcon(new MinimizeIcon(BLACK, 15));
+                    button.setIcon(recolorer(button.getIcon(), BLACK));
                 }
+
                 button.repaint();
             }
 
@@ -506,16 +508,30 @@ public class MainFrame extends JFrame {
             public void mouseExited(MouseEvent e) {
                 button.setOpaque(false);
                 button.setBackground(WHITE);
-                if (closeButton) {
-                    button.setIcon(new CloseIcon(BLACK, 15));
-                } else {
-                    button.setIcon(new MinimizeIcon(BLACK, 15));
-                }
+                button.setIcon(recolorer(button.getIcon(), BLACK));
                 button.repaint();
             }
         });
 
         return button;
+    }
+
+    /**
+     * Recolore l'icône actuellement affichée par le bouton, quelle
+     * qu'elle soit (Minimize, Maximize ou Restore selon l'état de
+     * la fenêtre), au lieu de la remplacer par une icône fixe.
+     *
+     * Cela évite qu'un survol de souris n'écrase par erreur l'icône
+     * "Réduire" (Restore) du bouton Agrandir/Restaurer par l'icône
+     * de la barre de réduction de fenêtre (Minimize).
+     */
+    private Icon recolorer(Icon icone, Color couleur) {
+
+        if (icone instanceof ColorableIcon) {
+            return ((ColorableIcon) icone).withColor(couleur);
+        }
+
+        return icone;
     }
 
     private void enableWindowDrag(Component component) {
@@ -997,7 +1013,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private static class MinimizeIcon implements Icon {
+    private static class MinimizeIcon implements ColorableIcon {
 
         private final Color color;
         private final int size;
@@ -1028,9 +1044,14 @@ public class MainFrame extends JFrame {
         public int getIconHeight() {
             return size;
         }
+
+        @Override
+        public Icon withColor(Color newColor) {
+            return new MinimizeIcon(newColor, size);
+        }
     }
 
-    private static class CloseIcon implements Icon {
+    private static class CloseIcon implements ColorableIcon {
 
         private final Color color;
         private final int size;
@@ -1060,6 +1081,11 @@ public class MainFrame extends JFrame {
         @Override
         public int getIconHeight() {
             return size;
+        }
+
+        @Override
+        public Icon withColor(Color newColor) {
+            return new CloseIcon(newColor, size);
         }
     }
 
